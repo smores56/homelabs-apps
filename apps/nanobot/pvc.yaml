@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nanobot-scratch
+  labels:
+    app.kubernetes.io/name: nanobot
+    app.kubernetes.io/component: agent
+spec:
+  # Scratch only: sessions, outbox and render cache. No app data ever lands here.
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 1Gi

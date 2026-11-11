@@ -1,0 +1,81 @@
+# Everything in the namespace is denied in both directions first; the three
+# policies below are the complete allowlist. A new dependency is a change to this
+# file, reviewed like any other.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# CoreDNS only. platform may repoint this at a tenant resolver; the labels and
+# port stay the same either way.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# The broker is the only egress. It injects credentials, refuses internal
+# addresses, and logs every request; port 3128 is its forward-proxy listener.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-broker-egress
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: broker
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: broker
+      ports:
+        - protocol: TCP
+          port: 3128
+---
+# agent.sammohr.dev arrives through the platform tunnel. Exposure itself is
+# gated by Cloudflare Access, which platform owns; this rule only admits the
+# tunnel's pods so the agent cannot be reached from the rest of the cluster.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-tunnel-ingress
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: tunnel
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cloudflared
+      ports:
+        - protocol: TCP
+          port: 8080

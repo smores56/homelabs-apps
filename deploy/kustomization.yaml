@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Flux is the only consumer: platform's tenant Kustomization points
+# spec.path at `deploy` with targetNamespace `nanobot` and the tenant
+# ServiceAccount. kustomize-controller builds with
+# --load-restrictor=LoadRestrictionsNone (fluxcd.io FAQ), which is what lets
+# this entrypoint reach the app directory; build it the same way locally.
+namespace: nanobot
+resources:
+  - ../apps/nanobot

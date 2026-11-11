@@ -1,0 +1,17 @@
+# Weekly: keep the tenant honest rather than busy. An empty report is the goal.
+name: weekly-review
+schedule: "0 8 * * 1"
+enabled: true
+model: kimi-k3.1-pro
+reasoning: high
+prompt: |
+  Review this repository as its reviewer: is every image digest still
+  resolvable, does every NetworkPolicy rule still have a consumer, are the
+  ConfigMap items and the Deployment's mount list still in sync, and does
+  AGENTS.md still describe the tree? Propose at most three commits, one concern
+  each, and list anything that needs a human because it is cluster-scoped, a
+  Secret, or touches a data namespace.
+delivery:
+  kind: file
+  path: /data/outbox/weekly-review.md
+  retention_days: 30

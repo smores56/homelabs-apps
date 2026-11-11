@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: nanobot
+# Selectors stay literal so a label edit never orphans a running pod.
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/part-of: nanobot
+resources:
+  - deployment.yaml
+  - service.yaml
+  - pvc.yaml
+  - networkpolicy.yaml
+# `namespace.yaml` is deliberately absent: the Namespace is cluster-scoped and
+# the tenant ServiceAccount cannot write it. platform applies that file.
+configMapGenerator:
+  - name: nanobot-config
+    options:
+      labels:
+        app.kubernetes.io/component: config
+    files:
+      # Flat ConfigMap keys; the Deployment maps each one onto its mount path.
+      - system-prompt.md=config/prompts/system.md
+      - providers.yaml=config/models/providers.yaml
+      - cron-cluster-digest.yaml=config/cron/cluster-digest.yaml
+      - cron-weekly-review.yaml=config/cron/weekly-review.yaml
+      - skill-tinyfish-search.md=config/skills/tinyfish-search/SKILL.md
+      - skill-git-change.md=config/skills/git-change/SKILL.md
