@@ -23,9 +23,10 @@ Verify: `gh api repos/smores56/homelabs-apps/collaborators/smores56-nanobot -q .
 | Token | Scope | Holder |
 |---|---|---|
 | `github-apps-token` | fine-grained PAT, `homelabs-apps` only, Contents: read/write, Workflows: no | broker, logical host `github-apps` |
-| `github-platform-token` | fine-grained PAT, `homelabs-platform` and its fork, Contents: read/write, Pull requests: read/write | broker, logical hosts `github-platform` and `github-fork` |
+| `github-platform-token` | fine-grained PAT, `smores56/homelabs-platform`, Contents: read, Pull requests: read/write | broker, logical host `github-platform` |
+| `github-fork-token` | fine-grained PAT, `smores56-nanobot/homelabs-platform` (the fork), Contents: read/write | broker, logical host `github-fork` |
 
-1. Mint both under `smores56-nanobot`, 90-day expiry, no other repositories.
+1. Mint all three under `smores56-nanobot`, 90-day expiry, no other repositories.
 2. Put them in `homelabs-platform`'s SOPS contract as
    `broker-credentials.yaml` (`docs/manual-steps.md` step 10 there) and let the
    broker's enrollment name them. The agent never sees either value, and this
