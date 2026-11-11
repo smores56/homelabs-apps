@@ -1,16 +1,18 @@
 # The tenant namespace, kept here for review but NOT applied by this repo.
 #
-# A Namespace is cluster-scoped, and platform binds the tenant ServiceAccount to
-# `admin` inside `nanobot` only, so Flux (running as that ServiceAccount) cannot
-# create or patch it. platform owns the live object; this copy is the contract it
-# must match, and `scripts/policy-scan.sh` asserts it stays out of the build.
+# A Namespace is cluster-scoped and platform owns the live object, so this copy
+# is the contract it must match (clusters/homelab/platform/namespaces). The
+# tenant ServiceAccount has no permission to create or patch it, and
+# `scripts/policy-scan.sh` asserts it stays out of the build.
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: nanobot
+  name: tenant-apps
   labels:
-    app.kubernetes.io/part-of: nanobot
+    app.kubernetes.io/part-of: homelabs
+    homelabs.dev/tenant: apps
+    homelabs.dev/tier: tenant
+    homelabs.dev/managed-by: tenant
     pod-security.kubernetes.io/enforce: restricted
-    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
-    pod-security.kubernetes.io/warn-version: latest

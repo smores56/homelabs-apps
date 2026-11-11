@@ -3,8 +3,8 @@
 # are the upstream catalog values, mirrored from nix-config's providers.nix so
 # the agent and the human's tools agree.
 provider: neuralwatt
-api_base: https://api.neuralwatt.com/v1
-proxy: http://broker.broker.svc.cluster.local:3128
+# $BROKER_URL/neuralwatt is the logical host; /v1 is the upstream prefix.
+api_base: http://broker.broker.svc.cluster.local:8080/neuralwatt/v1
 models:
   default: deepseek-v4.1-flash
   catalog:

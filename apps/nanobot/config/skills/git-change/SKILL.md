@@ -1,12 +1,19 @@
 ---
 name: git-change
 description: Make a cluster change through this repository, the only write path.
-metadata: {"nanobot":{"requires":{"bins":["git","bash"]}}}
+metadata: {"nanobot":{"requires":{"bins":["git","bash","curl"]}}}
 ---
 
 # Changing the cluster
 
-There is no `kubectl` here. A change is a commit, and Flux is the applier.
+There is no `kubectl` here and no credential to clone with. Git traffic goes
+through the broker, which injects the token; the URL is the logical host plus
+the repository path.
+
+```sh
+git clone "$BROKER_URL/github-apps/smores56/homelabs-apps.git" repo
+cd repo
+```
 
 1. Read the files you are about to touch, plus `README.md` and `AGENTS.md`.
 2. Edit only under `apps/`, `deploy/` and `docs/`.
@@ -21,12 +28,17 @@ There is no `kubectl` here. A change is a commit, and Flux is the applier.
    ```sh
    git add -A apps/
    git commit -m "fix(nanobot): <what changed and why>"
-   git push origin main
+   git push "$BROKER_URL/github-apps/smores56/homelabs-apps.git" HEAD:main
    ```
 
 5. Watch the commit, not the logs: CI on `main` re-runs the same checks, and a
-   red run means revert first (`git revert HEAD && git push`) and diagnose second.
+   red run means revert first and diagnose second.
 
-Anything that needs a Secret, a namespace, RBAC, a Flux resource, a
-cluster-scoped object, a new image build, or data access is not a Git change
-you can make. Write the diff into the report and hand it to the human.
+A platform change is a pull request from the fork, not a push: clone
+`$BROKER_URL/github-fork/smores56-nanobot/homelabs-platform.git`, commit on a
+branch, push it to the same URL, then POST the pull request to
+`$BROKER_URL/github-platform/repos/smores56/homelabs-platform/pulls`. The broker
+holds both tokens; you never see them. Anything that needs a Secret, a
+namespace, RBAC, a Flux resource, a cluster-scoped object, a new image build, or
+data access is not a Git change you can make. Write the diff into the report and
+hand it to the human.

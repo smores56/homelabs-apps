@@ -1,6 +1,6 @@
-# Everything in the namespace is denied in both directions first; the three
-# policies below are the complete allowlist. A new dependency is a change to this
-# file, reviewed like any other.
+# Everything in the namespace is denied in both directions first; the policies
+# below are the complete allowlist. A new dependency is a change to this file,
+# reviewed like any other.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -35,8 +35,9 @@ spec:
         - protocol: TCP
           port: 53
 ---
-# The broker is the only egress. It injects credentials, refuses internal
-# addresses, and logs every request; port 3128 is its forward-proxy listener.
+# The broker is the only egress. It is an HTTP API on 8080 that injects the
+# credential, refuses internal addresses and logs every request; there is no
+# forward proxy and no CONNECT.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -49,13 +50,13 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: broker
+              homelabs.dev/tier: broker
           podSelector:
             matchLabels:
               app.kubernetes.io/name: broker
       ports:
         - protocol: TCP
-          port: 3128
+          port: 8080
 ---
 # agent.sammohr.dev arrives through the platform tunnel. Exposure itself is
 # gated by Cloudflare Access, which platform owns; this rule only admits the
@@ -72,7 +73,7 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: tunnel
+              kubernetes.io/metadata.name: ingress
           podSelector:
             matchLabels:
               app.kubernetes.io/name: cloudflared

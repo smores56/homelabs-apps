@@ -1,23 +1,23 @@
 # homelabs-apps
 
 The tenant half of the home cluster's GitOps split. Flux reconciles this
-repository as an **unprivileged tenant** that may only write the `nanobot`
-namespace, which is also where the cluster administrator agent lives. It can
-change what runs; it cannot see what the cluster stores.
+repository as an **unprivileged tenant** into the `tenant-apps` namespace, which
+is where the cluster administrator agent lives. It can change what runs; it
+cannot see what the cluster stores.
 
 Machine counterpart: `smores56/homelabs-platform` (Flux bootstrap, namespaces,
-RBAC, admission policy, network policy, ESO/SOPS, data-bearing apps, cluster
-tunnel). Humans merge there; this repository is agent-writable.
+RBAC, admission policy, network policy, SOPS/ESO, the broker, data-bearing apps,
+cluster tunnel). Humans merge there; this repository is agent-writable.
 
 ## Tenant model
 
 Flux's tenant `Kustomization` lives in `homelabs-platform`, points `spec.path` at
-`deploy`, sets `spec.targetNamespace: nanobot`, and impersonates a
-ServiceAccount bound to `admin` inside `nanobot` only. Nothing in this
-repository can widen that.
+`deploy`, sets `spec.targetNamespace: tenant-apps`, and impersonates the
+`tenant-apps-reconciler` ServiceAccount. The platform owns the `nanobot`
+ServiceAccount in that namespace and binds it to nothing but read-only debug
+RBAC in the data namespaces. Nothing in this repository can widen either.
 
-That bound is what makes the following rules structural rather than stylistic,
-and `scripts/policy-scan.sh` enforces them on every push:
+That bound is structural, and `scripts/policy-scan.sh` enforces it on every push:
 
 - **Forbidden here:** `Secret`, `ServiceAccount`, `Role`, `RoleBinding`, any
   RBAC or admission API group; CRDs; cluster-scoped objects; Flux custom
@@ -26,9 +26,11 @@ and `scripts/policy-scan.sh` enforces them on every push:
 - **Data namespaces are out of reach:** Immich, Navidrome, Calibre, Graphiti and
   their PVCs, credentials and logs belong to `homelabs-platform`. The agent
   proposes diffs; a human applies them.
-- **Credentials never live here.** Egress goes to the broker, which injects the
-  token, strips whatever the agent sent, refuses internal addresses, and logs
-  every request. The agent holds the broker's address, nothing else.
+- **Credentials never live here, and the agent holds none.** Every outbound
+  request goes to the broker (`BROKER_URL`) in the `broker` namespace. The
+  broker maps a logical host to a real endpoint, injects the token, strips
+  whatever the agent sent, refuses internal addresses and redirects, and logs
+  every request. There is no forward proxy, no CONNECT and no broker token.
 
 `apps/nanobot/namespace.yaml` is the one cluster-scoped file, kept for review and
 deliberately **not** part of the build: the tenant cannot create a Namespace, so
@@ -41,8 +43,10 @@ platform owns the live object and this copy is the contract it must match.
 | `deploy/kustomization.yaml` | the Flux entrypoint (`spec.path: deploy`) |
 | `apps/nanobot/` | Deployment, Service, scratch PVC, NetworkPolicies |
 | `apps/nanobot/config/` | prompts, model catalog, cron entries, skills — see its README |
-| `scripts/` | `verify.sh` (local + CI) and `policy-scan.sh` (deny list) |
-| `docs/manual-steps.md` | operator steps: machine user, tokens, image digest, first push |
+| `scripts/verify.sh` | local + CI: kustomize, yamllint, kubeconform, shellcheck, policy scan |
+| `scripts/policy-scan.sh` | deny list for kinds, host escapes, tokens and config drift |
+| `scripts/acceptance-t8.sh` | live T8 test: model call, apps push, fork push, platform PR through the broker |
+| `docs/manual-steps.md` | operator steps: machine user, tokens, image digest, broker wiring |
 
 ## Contracts with platform
 
@@ -50,26 +54,38 @@ These names are the seam; changing either side needs both.
 
 | Seam | Value |
 |---|---|
-| Namespace | `nanobot`, Pod Security `restricted` |
-| Tenant identity | ServiceAccount `nanobot` in `nanobot`, no API access (`automountServiceAccountToken: false`) |
+| Namespace | `tenant-apps`, Pod Security `restricted` |
+| Agent identity | ServiceAccount `nanobot` in `tenant-apps`, no token automount, no API route |
 | Runtime | `RuntimeClass gvisor` (containerd handler `runsc`); absence fails admission |
-| Broker | `broker.broker.svc.cluster.local:3128`, pods labelled `app.kubernetes.io/name: broker` |
+| Broker | `BROKER_URL=http://broker.broker.svc.cluster.local:8080`, pods labelled `app.kubernetes.io/name: broker` in tier `broker` |
+| Logical hosts | `neuralwatt`, `github-apps`, `github-fork`, `github-platform`, `tinyfish`, `loki`, `status` (`docs/broker.md` in `homelabs-platform`) |
 | DNS | CoreDNS in `kube-system`, pods labelled `k8s-app: kube-dns` |
-| Ingress | pods labelled `app.kubernetes.io/name: cloudflared` in namespace `tunnel` (Cloudflare Access in front of `agent.sammohr.dev`) |
-| Image | `ghcr.io/smores56/nanobot@sha256:…`, digest-pinned |
+| Ingress | pods labelled `app.kubernetes.io/name: cloudflared` in namespace `ingress` (Cloudflare Access in front of `agent.sammohr.dev`) |
+| Image | `ghcr.io/smores56/homelabs-apps/nanobot@sha256:…`, digest-pinned |
+| Cloudflare | no token in this repository or the pod; the tunnel connector in `ingress` owns it |
 
 ## Verify
 
 ```sh
 nix run nixpkgs#kustomize -- build apps/nanobot
 nix run nixpkgs#kustomize -- build --load-restrictor LoadRestrictionsNone deploy
-nix shell nixpkgs#kustomize nixpkgs#kubeconform nixpkgs#yamllint -c bash scripts/verify.sh
+nix shell nixpkgs#kustomize nixpkgs#kubeconform nixpkgs#yamllint nixpkgs#shellcheck \
+  -c bash scripts/verify.sh
 git diff --check
 ```
 
 `--load-restrictor LoadRestrictionsNone` is what kustomize-controller itself
 passes (fluxcd.io FAQ); plain `kustomize build deploy` refuses the parent
 directory by design. CI runs the identical script.
+
+Live acceptance (inside the pod, after the broker and its credentials exist):
+
+```sh
+cluster-kubectl -n tenant-apps exec deploy/nanobot -- bash scripts/acceptance-t8.sh
+```
+
+It skips with exit 0 when `BROKER_URL` is unset (i.e. outside the agent pod) and
+never reads or prints a token.
 
 ## Branch protection
 
@@ -104,7 +120,6 @@ repository, and classic branch protection on a private repository requires
 GitHub Pro (the rulesets API currently answers "Upgrade to GitHub Pro"). Once
 both hold, run the block above unchanged.
 
-When the nanobot machine user starts pushing (see `docs/manual-steps.md`), add
-it to `restrictions.users` with the same call. The CI check stays required:
-pushing a commit that fails `verify` reports red on `main`, and the fix is a
-revert, which is the rule the agent's system prompt states.
+When `smores56-nanobot` starts pushing (see `docs/manual-steps.md`), add it to
+`restrictions.users` with the same call. The CI check stays unrequired: pushing
+a commit that fails `verify` reports red on `main`, and the fix is a revert.

@@ -21,6 +21,11 @@ The mount is read-only and the container rootfs is read-only. Everything the
 agent writes goes to `$HOME` on the `nanobot-scratch` PVC (`/data/home`) or to
 `/tmp`.
 
+The pod has no credential: `serviceAccountName: nanobot`,
+`automountServiceAccountToken: false`, no Secret volume and no Secret-backed
+env. `BROKER_URL` is the only outbound address, and the broker injects the
+provider token (`docs/broker.md` in `homelabs-platform`).
+
 ## Image-side contract
 
 The image's entrypoint must, on start:
@@ -37,10 +42,13 @@ these files by committing them like any other manifest.
 
 ## Rules for edits
 
-- No credentials, tokens, emails, or personal data in any file here.
+- No credentials, tokens, emails, or personal data in any file here. A
+  token-shaped string fails `scripts/policy-scan.sh`; there is no legitimate
+  token for the agent to hold, including a broker token.
 - A model id comes from the Neuralwatt catalog in `models/providers.yaml`; new
   ids arrive with their context window and output cap, not on their own.
 - A cron entry stays under 20 lines, names its model explicitly, and writes a
   file under `/data/outbox`. It never sends anything outward.
 - A skill is one action, one `SKILL.md`, and any binary it needs must already
-  exist in the image (`metadata.nanobot.requires.bins`).
+  exist in the image (`metadata.nanobot.requires.bins`). Every outbound call
+  names a broker logical host (`skills/broker-requests`).

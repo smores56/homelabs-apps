@@ -37,7 +37,7 @@ spec:
         - name: nanobot
           # PLACEHOLDER DIGEST: 64 zeroes are not a real manifest. Replace with
           # the digest published by the image build (docs/manual-steps.md).
-          image: ghcr.io/smores56/nanobot@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          image: ghcr.io/smores56/homelabs-apps/nanobot@sha256:0000000000000000000000000000000000000000000000000000000000000000 # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           args:
             - gateway
@@ -55,13 +55,16 @@ spec:
               value: /data/home
             - name: TMPDIR
               value: /tmp
-            # Every outbound request, credentialed or not, leaves via the broker.
-            - name: HTTP_PROXY
-              value: http://broker.broker.svc.cluster.local:3128
-            - name: HTTPS_PROXY
-              value: http://broker.broker.svc.cluster.local:3128
-            - name: NO_PROXY
-              value: 127.0.0.1,localhost
+            # The broker is the only egress and the only place a credential
+            # exists. It is an HTTP API, not a forward proxy: every request is
+            # $BROKER_URL/<logical-host>/<path>, and no request carries a token.
+            - name: BROKER_URL
+              value: http://broker.broker.svc.cluster.local:8080
+            - name: TINYFISH_BASE_URL
+              value: http://broker.broker.svc.cluster.local:8080/tinyfish
+            # A git push that would prompt is a bug: there is no password.
+            - name: GIT_TERMINAL_PROMPT
+              value: "0"
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -107,10 +110,12 @@ spec:
                 path: cron/cluster-digest.yaml
               - key: cron-weekly-review.yaml
                 path: cron/weekly-review.yaml
-              - key: skill-tinyfish-search.md
-                path: skills/tinyfish-search/SKILL.md
+              - key: skill-broker-requests.md
+                path: skills/broker-requests/SKILL.md
               - key: skill-git-change.md
                 path: skills/git-change/SKILL.md
+              - key: skill-tinyfish-search.md
+                path: skills/tinyfish-search/SKILL.md
         - name: scratch
           persistentVolumeClaim:
             claimName: nanobot-scratch

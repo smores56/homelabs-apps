@@ -11,8 +11,7 @@ query is one argument list, never shell syntax.
 
 ```sh
 curl -sS --max-time 20 -H 'Accept: application/json' \
-  --get --data-urlencode "query=QUERY" \
-  "$TINYFISH_BASE_URL/search"
+  --get --data-urlencode "query=QUERY" "$TINYFISH_BASE_URL"
 ```
 
 Read `.results[]` and use `title`, `url` and `snippet`. Keep the query under 100
