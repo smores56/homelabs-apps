@@ -56,8 +56,11 @@ fi
 if hits=$(grep -nE '^ +image:' "$rendered" | grep -vE '@sha256:[0-9a-f]{64}$'); then
   note "image not pinned by digest: $hits"
 fi
-if grep -qE '@sha256:0{64}$' "$rendered"; then
-  echo "::warning title=placeholder-image::deployment still carries the placeholder digest; see docs/manual-steps.md"
+# An all-zero digest is a placeholder, not a pin: it is syntactically valid and
+# points at nothing. Failing here keeps CI honest about a manifest no node can
+# pull, instead of downgrading it to a warning nobody reads.
+if hits=$(grep -nE '@sha256:0{64}$' "$rendered"); then
+  note "image is a placeholder digest (docs/manual-steps.md step 3): $hits"
 fi
 
 # The agent holds no credential of any kind: no Secret volume, env or key.

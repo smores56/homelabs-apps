@@ -44,7 +44,9 @@ logical hosts speak HTTP), so the PAT remains the documented route.
 ## 3. Pin the image digest
 
 `apps/nanobot/deployment.yaml` ships a deliberate all-zero digest; the pod will
-not start until it is replaced.
+not start until it is replaced, and `scripts/policy-scan.sh` **fails** on it
+(`image is a placeholder digest`), so CI is red until this step is done. That is
+the honest signal: the repository ships a manifest no registry can pull.
 
 1. The image wraps nix-config's `pkgs/nanobot` virtualenv plus the entrypoint
    that implements `apps/nanobot/config/README.md` (render `config.json`, index
@@ -63,8 +65,8 @@ not start until it is replaced.
    `tenant-apps`; either way that credential belongs to platform's SOPS file,
    not here.
 
-Verify: `scripts/policy-scan.sh` stops printing the `placeholder-image`
-warning, and the pod reaches `Running` after reconcile.
+Verify: `scripts/policy-scan.sh` passes (it fails on `@sha256:0{64}`), and the
+pod reaches `Running` after reconcile.
 
 ## 4. Wire the tenant into platform
 
