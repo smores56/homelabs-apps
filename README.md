@@ -99,6 +99,11 @@ and a required check would block every direct push because a new commit has no
 status yet. CI still runs on each push — a red `verify` on `main` means revert,
 which is the rule the agent's system prompt states.
 
+Not applied yet: the call needs a token with **Administration: write** on the
+repository, and classic branch protection on a private repository requires
+GitHub Pro (the rulesets API currently answers "Upgrade to GitHub Pro"). Once
+both hold, run the block above unchanged.
+
 When the nanobot machine user starts pushing (see `docs/manual-steps.md`), add
 it to `restrictions.users` with the same call. The CI check stays required:
 pushing a commit that fails `verify` reports red on `main`, and the fix is a

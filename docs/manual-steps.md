@@ -137,6 +137,12 @@ When the machine user starts pushing, add `nanobot-smores56` to
 Verify: `gh api repos/smores56/homelabs-apps/branches/main/protection -q '.restrictions.users[].login'`
 lists exactly the accounts allowed to push.
 
+Precondition, not yet satisfied: this call needs a token with
+**Administration: write** on the repository, and classic branch protection on a
+private repository needs GitHub Pro (the rulesets API answers "Upgrade to
+GitHub Pro" on the current plan). Until both hold, `main` is unprotected and the
+only guard is the commit review the agent does itself.
+
 ## 6. Broker and tunnel enrolment
 
 1. Broker logical hosts: `neuralwatt`, `github:homelabs-apps`,
