@@ -24,7 +24,6 @@ configMapGenerator:
       # Flat ConfigMap keys; the Deployment maps each one onto its mount path.
       - system-prompt.md=config/prompts/system.md
       - providers.yaml=config/models/providers.yaml
-      - cron-cluster-digest.yaml=config/cron/cluster-digest.yaml
       - cron-weekly-review.yaml=config/cron/weekly-review.yaml
       - skill-broker-requests.md=config/skills/broker-requests/SKILL.md
       - skill-git-change.md=config/skills/git-change/SKILL.md

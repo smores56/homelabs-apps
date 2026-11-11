@@ -48,7 +48,12 @@ these files by committing them like any other manifest.
 - A model id comes from the Neuralwatt catalog in `models/providers.yaml`; new
   ids arrive with their context window and output cap, not on their own.
 - A cron entry stays under 20 lines, names its model explicitly, and writes a
-  file under `/data/outbox`. It never sends anything outward.
+  file under `/data/outbox`. It never sends anything outward. `/data/outbox` is
+  on the scratch PVC and **nothing reads it**: it is the agent's own scratch
+  record, not a delivery channel. The cluster digest the cluster sends toward
+  Kanbei is written by the platform CronJob (`cluster-digest` in
+  `homelabs-platform`) to the host's share and age-encrypted by the host writer;
+  the agent neither produces nor consumes it.
 - A skill is one action, one `SKILL.md`, and any binary it needs must already
   exist in the image (`metadata.nanobot.requires.bins`). Every outbound call
   names a broker logical host (`skills/broker-requests`).

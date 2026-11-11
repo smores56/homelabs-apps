@@ -106,8 +106,6 @@ spec:
                 path: prompts/system.md
               - key: providers.yaml
                 path: models/providers.yaml
-              - key: cron-cluster-digest.yaml
-                path: cron/cluster-digest.yaml
               - key: cron-weekly-review.yaml
                 path: cron/weekly-review.yaml
               - key: skill-broker-requests.md
