@@ -2,7 +2,7 @@
 # T8 acceptance test (smores56/sdlc#582), run inside the nanobot pod.
 #
 # Proves the whole path end to end: the broker injects the Neuralwatt key, git
-# pushes reach homelabs-apps, an agent/* branch reaches homelabs-platform, and a
+# pushes reach homelabs-apps, an agent/** branch reaches homelabs-platform, and a
 # same-repo pull request opens - all without the agent holding a credential. The
 # broker mints GitHub App installation tokens; this process never sees one.
 #
@@ -57,7 +57,7 @@ git -C "$work/apps" push -q broker "$branch"
 say "pushed $branch"
 
 # 3. The same branch in homelabs-platform, through github-platform-push. The
-# ruleset admits the app only on agent/*.
+# ruleset admits the app only on agent/**.
 say "== push an agent branch to homelabs-platform"
 git clone -q "$BROKER_URL/github-platform-push/smores56/homelabs-platform.git" "$work/platform"
 git -C "$work/platform" checkout -q -b "$branch"
@@ -87,6 +87,26 @@ curl -sS --max-time 30 -X PATCH \
   --data '{"state":"closed"}' \
   "$BROKER_URL/github-platform/repos/smores56/homelabs-platform/pulls/$number" >/dev/null
 say "closed pull request #$number"
+
+# 5. Negative probes. A success here means a control disappeared, so the run
+#    fails and the ref is removed rather than left behind.
+say "== the app cannot push outside agent/**"
+if git -C "$work/platform" push -q origin "HEAD:probe/denied-$stamp" 2>"$work/probe1.err"; then
+  git -C "$work/platform" push -q origin ":probe/denied-$stamp" || true
+  fail "the push to probe/denied-$stamp succeeded; the ruleset does not confine the app"
+fi
+say "refused: $(head -c 200 "$work/probe1.err")"
+
+say "== the app cannot push a workflow change"
+git -C "$work/platform" checkout -q -b "agent/workflows-probe-$stamp" "$branch"
+printf '\n# probe\n' >>"$work/platform/.github/workflows/ci.yml"
+git -C "$work/platform" add .github/workflows/ci.yml
+git -C "$work/platform" "${identity[@]}" commit -q -m "test: workflow probe"
+if git -C "$work/platform" push -q origin "agent/workflows-probe-$stamp" 2>"$work/probe2.err"; then
+  git -C "$work/platform" push -q origin ":agent/workflows-probe-$stamp" || true
+  fail "a workflow change was pushed; the app's Workflows permission is not off"
+fi
+say "refused: $(head -c 200 "$work/probe2.err")"
 
 # 5. Clean up the branches over the git transport. A failed delete is reported,
 # not fatal: the PR is already closed and a leftover branch is visible in Git.
