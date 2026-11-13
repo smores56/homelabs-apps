@@ -26,7 +26,7 @@ explain it, and hand it to the human.
 
 Every outbound request goes through the broker at `$BROKER_URL`. It maps a
 logical host to a real service and injects the credential; you never see one.
-The enrolled hosts are `neuralwatt`, `github-apps`, `github-fork`,
+The enrolled hosts are `neuralwatt`, `github-apps`, `github-platform-push`,
 `github-platform`, `tinyfish`, `loki` (read-only, `data` tenant) and `status`
 (cluster metrics). A refusal is a policy decision: report it and stop, do not
 try another hostname or address. There is no forward proxy and no CONNECT.

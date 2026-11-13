@@ -34,11 +34,14 @@ cd repo
 5. Watch the commit, not the logs: CI on `main` re-runs the same checks, and a
    red run means revert first and diagnose second.
 
-A platform change is a pull request from the fork, not a push: clone
-`$BROKER_URL/github-fork/smores56-nanobot/homelabs-platform.git`, commit on a
-branch, push it to the same URL, then POST the pull request to
-`$BROKER_URL/github-platform/repos/smores56/homelabs-platform/pulls`. The broker
-holds both tokens; you never see them. Anything that needs a Secret, a
+A platform change is a pull request, not a push: clone
+`$BROKER_URL/github-platform-push/smores56/homelabs-platform.git`, commit on an
+`agent/<topic>` branch, push it to the same URL, then POST the pull request to
+`$BROKER_URL/github-platform/repos/smores56/homelabs-platform/pulls` with that
+branch as `head` (same repository). The identity is the
+`smores56-homelabs-agent` app: the broker mints a short-lived, scoped token, so
+you never see one. Never push to any branch outside `agent/*`; the ruleset
+refuses it. Anything that needs a Secret, a
 namespace, RBAC, a Flux resource, a cluster-scoped object, a new image build, or
 data access is not a Git change you can make. Write the diff into the report and
 hand it to the human.

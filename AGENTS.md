@@ -67,6 +67,6 @@ acceptance is `scripts/acceptance-t8.sh` inside the pod; it skips without
 ## Docs
 
 `README.md` holds the tenant model and the platform seams; `docs/manual-steps.md`
-holds the steps only a human can do (machine user, tokens, image digest, broker
+holds the steps only a human can do (GitHub App, credential files, image digest, broker
 wiring, tunnel route). Keep both current when a seam moves; neither carries
 TODO/TBD items.

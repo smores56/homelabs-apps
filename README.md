@@ -45,8 +45,8 @@ platform owns the live object and this copy is the contract it must match.
 | `apps/nanobot/config/` | prompts, model catalog, cron entries, skills — see its README |
 | `scripts/verify.sh` | local + CI: kustomize, yamllint, kubeconform, shellcheck, policy scan |
 | `scripts/policy-scan.sh` | deny list for kinds, host escapes, tokens and config drift |
-| `scripts/acceptance-t8.sh` | live T8 test: model call, apps push, fork push, platform PR through the broker |
-| `docs/manual-steps.md` | operator steps: machine user, tokens, image digest, broker wiring |
+| `scripts/acceptance-t8.sh` | live T8 test: model call, apps push, agent branch, same-repo platform PR through the broker |
+| `docs/manual-steps.md` | operator steps: the GitHub App, broker credential files, image digest, wiring |
 
 ## Contracts with platform
 
@@ -58,7 +58,7 @@ These names are the seam; changing either side needs both.
 | Agent identity | ServiceAccount `nanobot` in `tenant-apps`, no token automount, no API route |
 | Runtime | `RuntimeClass gvisor` (containerd handler `runsc`); absence fails admission |
 | Broker | `BROKER_URL=http://broker.broker.svc.cluster.local:8080`, pods labelled `app.kubernetes.io/name: broker` in tier `broker` |
-| Logical hosts | `neuralwatt`, `github-apps`, `github-fork`, `github-platform`, `tinyfish`, `loki`, `status` (`docs/broker.md` in `homelabs-platform`) |
+| Logical hosts | `neuralwatt`, `github-apps`, `github-platform-push`, `github-platform`, `tinyfish`, `loki`, `status` (`docs/broker.md` in `homelabs-platform`) |
 | DNS | CoreDNS in `kube-system`, pods labelled `k8s-app: kube-dns` |
 | Ingress | pods labelled `app.kubernetes.io/name: cloudflared` in namespace `ingress` (Cloudflare Access in front of `agent.sammohr.dev`) |
 | Image | `ghcr.io/smores56/homelabs-apps/nanobot@sha256:…`, digest-pinned |
@@ -101,7 +101,7 @@ gh api -X PUT repos/smores56/homelabs-apps/branches/main/protection \
   "required_status_checks": null,
   "enforce_admins": true,
   "required_pull_request_reviews": null,
-  "restrictions": {"users": ["smores56"], "teams": [], "apps": []},
+  "restrictions": {"users": ["smores56"], "teams": [], "apps": ["smores56-homelabs-agent"]},
   "allow_force_pushes": false,
   "allow_deletions": false,
   "required_linear_history": true
@@ -120,6 +120,6 @@ repository, and classic branch protection on a private repository requires
 GitHub Pro (the rulesets API currently answers "Upgrade to GitHub Pro"). Once
 both hold, run the block above unchanged.
 
-When `smores56-nanobot` starts pushing (see `docs/manual-steps.md`), add it to
-`restrictions.users` with the same call. The CI check stays unrequired: pushing
+The app `smores56-homelabs-agent` is the only non-human identity that pushes
+here; it is listed in `restrictions.apps`, not `restrictions.users`. The CI check stays unrequired: pushing
 a commit that fails `verify` reports red on `main`, and the fix is a revert.

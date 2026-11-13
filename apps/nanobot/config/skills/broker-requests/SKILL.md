@@ -15,8 +15,8 @@ through untouched.
 |---|---|
 | `neuralwatt` | the model API (`/v1/...`) |
 | `github-apps` | git smart HTTP for `smores56/homelabs-apps` |
-| `github-fork` | git smart HTTP for the machine user's `homelabs-platform` fork |
-| `github-platform` | the GitHub REST API for fork and pull-request calls |
+| `github-platform-push` | git smart HTTP for `smores56/homelabs-platform` (`agent/*` branches only) |
+| `github-platform` | the GitHub REST API for pull-request calls |
 | `tinyfish` | TinyFish search (`?query=...`) |
 | `loki` | the read-only LogQL gateway for the `data` tenant |
 | `status` | the cluster status exporter (`/metrics`) |

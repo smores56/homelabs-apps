@@ -3,43 +3,27 @@
 Steps only the owner can do. Each one names its verification; nothing here is
 optional for the agent to work.
 
-## 1. Create the nanobot machine user
+## 1. Create the `smores56-homelabs-agent` GitHub App
 
-Fork-and-PR against a private repository needs a distinct GitHub account, and
-creating one needs the owner's email and 2FA.
+There is no machine user and no PAT for the agent. The identity is the app;
+`homelabs-platform` owns the one-time creation steps (its
+`docs/manual-steps.md` step 1): permissions (Contents: read/write, Pull
+requests: read/write, Metadata: read), install on `homelabs-apps` and
+`homelabs-platform`, and the branch ruleset that confines writes to `agent/*`.
 
-1. Sign up `smores56-nanobot` with an owner-controlled email and TOTP in the
-   owner's password manager. Enable 2FA before the first push.
-2. Add it as a collaborator with **Write** on `smores56/homelabs-apps` and
-   **Read** on `smores56/homelabs-platform`, then fork `homelabs-platform` from
-   that account (the fork is where PR branches come from).
-3. Record the recovery codes and the TOTP seed in the owner's vault, not in a
-   repository.
+Verify: `gh api /users/smores56-homelabs-agent` returns the app's bot user, and
+`gh api repos/smores56/homelabs-apps/installation` lists the installation.
 
-Verify: `gh api repos/smores56/homelabs-apps/collaborators/smores56-nanobot -q .permissions.push` prints `true`.
+## 2. Supply the app to the broker
 
-## 2. Mint the two tokens (they never enter this repository)
+The broker mints installation tokens from `smores56-homelabs-agent`; the agent
+holds none. Put the app id, the private key and both installation ids in the
+platform broker Secret (`homelabs-platform` `docs/manual-steps.md` step 10).
+Nothing enters this repository.
 
-| Token | Scope | Holder |
-|---|---|---|
-| `github-apps-token` | fine-grained PAT, `homelabs-apps` only, Contents: read/write, Workflows: no | broker, logical host `github-apps` |
-| `github-platform-token` | fine-grained PAT, `smores56/homelabs-platform`, Contents: read, Pull requests: read/write | broker, logical host `github-platform` |
-| `github-fork-token` | fine-grained PAT, `smores56-nanobot/homelabs-platform` (the fork), Contents: read/write | broker, logical host `github-fork` |
-
-1. Mint all three under `smores56-nanobot`, 90-day expiry, no other repositories.
-2. Put them in `homelabs-platform`'s SOPS contract as
-   `broker-credentials.yaml` (`docs/manual-steps.md` step 10 there) and let the
-   broker's enrollment name them. The agent never sees either value, and this
-   repository must never contain one.
-
-Verify: a call through `$BROKER_URL/github-platform/user` from the agent pod
-returns the machine user's JSON; `$BROKER_URL/github-apps` cannot reach the
-platform repository.
-
-**Deploy-key alternative** for the push token: generate an SSH key, register it
-under *Settings → Deploy keys* with **Allow write access**, and let the broker
-hold the private half. That needs an SSH-speaking path (the broker's git
-logical hosts speak HTTP), so the PAT remains the documented route.
+Verify: a call through `$BROKER_URL/github-platform/rate_limit` from the agent
+pod returns `200`; `$BROKER_URL/github-apps` can push to `homelabs-apps` but the
+platform scopes refuse every other repository.
 
 ## 3. Pin the image digest
 
@@ -114,7 +98,7 @@ gh api -X PUT repos/smores56/homelabs-apps/branches/main/protection \
   "required_status_checks": null,
   "enforce_admins": true,
   "required_pull_request_reviews": null,
-  "restrictions": {"users": ["smores56"], "teams": [], "apps": []},
+  "restrictions": {"users": ["smores56"], "teams": [], "apps": ["smores56-homelabs-agent"]},
   "allow_force_pushes": false,
   "allow_deletions": false,
   "required_linear_history": true
@@ -125,8 +109,8 @@ JSON
 No status check is required: the branch is pushed to directly, and a required
 check would block every direct push. CI runs anyway; red `main` means revert.
 
-When the machine user starts pushing, add `smores56-nanobot` to
-`restrictions.users` and re-run the same call.
+The app `smores56-homelabs-agent` is already the sole non-human pusher; it is
+listed in `restrictions.apps`.
 
 Verify: `gh api repos/smores56/homelabs-apps/branches/main/protection -q '.restrictions.users[].login'`
 lists exactly the accounts allowed to push.
@@ -141,7 +125,7 @@ only guard is the commit review the agent does itself.
 
 1. Broker logical hosts are enrolled in `homelabs-platform`
    (`clusters/homelab/broker/config/broker.json`): `neuralwatt`, `github-apps`,
-   `github-fork`, `github-platform`, `tinyfish`, `loki`, `status`.
+   `github-platform-push`, `github-platform`, `tinyfish`, `loki`, `status`.
    `agent.sammohr.dev` is not a logical host and must never appear in an
    allowlist.
 2. The tunnel rule admits pods labelled `app.kubernetes.io/name: cloudflared` in
