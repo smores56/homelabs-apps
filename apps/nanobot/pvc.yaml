@@ -13,3 +13,23 @@ spec:
   resources:
     requests:
       storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nanobot-books
+  labels:
+    app.kubernetes.io/name: nanobot
+    app.kubernetes.io/component: books
+spec:
+  # The existing books share, not a copy: platform owns the pre-bound PV
+  # `nanobot-books-data` (local path /mnt/data/books), the same tree Calibre and
+  # the OPDS server read. The class must be stated: k3s's default local-path
+  # class would otherwise provision a new empty volume and leave the PV unused.
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  storageClassName: data-local
+  resources:
+    requests:
+      storage: 5Ti

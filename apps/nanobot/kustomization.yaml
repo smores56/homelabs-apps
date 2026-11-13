@@ -22,9 +22,8 @@ configMapGenerator:
       labels:
         app.kubernetes.io/component: config
     files:
-      # Flat ConfigMap keys; the Deployment maps each one onto its mount path.
-      - system-prompt.md=config/prompts/system.md
-      - providers.yaml=config/models/providers.yaml
+      # Only the tenant-owned half. The prompt and the model catalog come from
+      # platform's nanobot-policy ConfigMap (see deployment.yaml).
       - cron-weekly-review.yaml=config/cron/weekly-review.yaml
       - skill-broker-requests.md=config/skills/broker-requests/SKILL.md
       - skill-git-change.md=config/skills/git-change/SKILL.md

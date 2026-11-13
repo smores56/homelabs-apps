@@ -1,7 +1,8 @@
-# Contract copy, not part of the build: the tenant ServiceAccount may not write
-# NetworkPolicies (the agent must not be able to widen its own isolation). The
-# live objects are applied by homelabs-platform's network stage; this file is
-# what that stage must match.
+# Reviewed network contract, not part of the build: the tenant ServiceAccount
+# may not write NetworkPolicies (the agent must not be able to widen its own
+# isolation). homelabs-platform owns the live objects and applies them from its
+# network stage; this file is what that stage must match, and a change here is
+# only real once platform has merged the matching change.
 #
 # Everything in the namespace is denied in both directions first; the policies
 # below are the complete allowlist. A new dependency is a change to this file,
@@ -40,9 +41,9 @@ spec:
         - protocol: TCP
           port: 53
 ---
-# The broker is the only egress. It is an HTTP API on 8080 that injects the
-# credential, refuses internal addresses and logs every request; there is no
-# forward proxy and no CONNECT.
+# The broker is the only internal service and the only place a credential is
+# injected. It is an HTTP API on 8080 that refuses internal addresses and logs
+# every request; there is no forward proxy and no CONNECT.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -62,6 +63,46 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+---
+# Direct public egress, reviewed with the rest of this contract: the agent
+# fetches releases and reads documentation itself, so the host tap forwards the
+# public internet instead of ending at the broker. The broker remains the only
+# place a credential exists; this rule grants reachability, not authorization.
+#
+# Not a bare 0.0.0.0/0: the private, CGNAT, link-local (including the
+# 169.254.169.254 metadata endpoint), loopback and ULA ranges stay refused, so a
+# compromised process cannot reach the API, the node, the data namespaces or
+# cluster-internal services. Ports are not restricted here because the guest's
+# tap forwards only 80/443 plus DNS and NTP (modules/nixos/cluster-vm.nix).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-public-egress
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 0.0.0.0/8
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 127.0.0.0/8
+              - 169.254.0.0/16
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+    - to:
+        - ipBlock:
+            cidr: ::/0
+            except:
+              - ::1/128
+              # IPv4-mapped addresses must not sneak past the v4 except list.
+              - ::ffff:0:0/96
+              - fc00::/7
+              - fe80::/10
 ---
 # agent.sammohr.dev arrives through the platform tunnel. Exposure itself is
 # gated by Cloudflare Access, which platform owns; this rule only admits the

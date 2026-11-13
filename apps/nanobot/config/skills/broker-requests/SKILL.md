@@ -6,10 +6,12 @@ metadata: {"nanobot":{"requires":{"bins":["curl"]}}}
 
 # Broker requests
 
-Every outbound request goes to `$BROKER_URL` (the broker Service in the
-`broker` namespace). It is an HTTP API, not a proxy: the first path segment is
-the **logical host**, the rest is the upstream path, and the query string passes
-through untouched.
+Every request that needs a credential or reaches an internal service goes to
+`$BROKER_URL` (the broker Service in the `broker` namespace). It is an HTTP API,
+not a proxy: the first path segment is the **logical host**, the rest is the
+upstream path, and the query string passes through untouched. A public download
+that needs no credential may go direct over HTTPS; the network contract refuses
+every private range, so there is nothing internal to reach that way.
 
 | Logical host | What it is |
 |---|---|
