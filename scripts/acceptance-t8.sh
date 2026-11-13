@@ -77,7 +77,11 @@ response=$(curl -sS --max-time 30 -X POST \
   -H 'Content-Type: application/json' \
   --data "$payload" \
   "$BROKER_URL/github-platform/repos/smores56/homelabs-platform/pulls")
-number=$(printf '%s' "$response" | grep -o '"number":[[:space:]]*[0-9]*' | head -1 | grep -o '[0-9]*$')
+number=""
+# The image has no grep; parse the JSON with bash's own regex.
+if [[ $response =~ \"number\"[[:space:]]*:[[:space:]]*([0-9]+) ]]; then
+  number=${BASH_REMATCH[1]}
+fi
 [[ -n $number ]] || fail "no pull request number in the response: $response"
 say "opened pull request #$number"
 
