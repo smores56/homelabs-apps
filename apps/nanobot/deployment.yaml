@@ -36,8 +36,8 @@ spec:
       containers:
         - name: nanobot
           # Built and published by packages.nanobot-image's workflow in
-          # smores56/nix-config (digest in that run's summary).
-          image: ghcr.io/smores56/nix-config/nanobot@sha256:e3ca0f131d40d7253ffcc38ba235f5fa1cff93d318fd6d6fb609a18ee66b5ea0 # yamllint disable-line rule:line-length
+          # smores56/nix-config (digest in that run's check-run annotation).
+          image: ghcr.io/smores56/nix-config/nanobot@sha256:3c8fb2cb5b9277ba75e1584710cc2d0cffcd1c46e87586aa9ee4c2b0e4cf4cae # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           args:
             - gateway
