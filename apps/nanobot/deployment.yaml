@@ -37,13 +37,46 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
+      # The env roots are directories inside mounted volumes, and Kubernetes
+      # mounts a volume empty: nothing creates /data/tmp, and a subPath mount
+      # would create it root-owned, unwritable by uid 1000. This one-shot step
+      # makes the layout before the agent starts; it is idempotent.
+      initContainers:
+        - name: prepare-tools
+          # Only mkdir runs here, but it is the same digest-pinned image the
+          # container below runs: the Flux marker rewrites that line alone, so a
+          # digest bump moves both.
+          image: ghcr.io/smores56/homelabs-platform/nanobot@sha256:01a32bece3833808aa9e4d6f9527113232bbf6ff0a01665b1e865943d1e726e8 # yamllint disable-line rule:line-length
+          imagePullPolicy: IfNotPresent
+          command:
+            - mkdir
+            - -p
+            - /data/tmp
+            - /data/home/tools/bin
+            - /data/home/tools/uv
+            - /data/home/tools/py
+            - /data/home/tools/npm
+            - /data/home/tools/cargo
+            - /data/home/tools/go
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: scratch
+              mountPath: /data
+            - name: tools
+              mountPath: /data/home/tools
       containers:
         - name: nanobot
           # Built and published by the trusted workflow in homelabs-platform;
           # the image source and its digest are platform-owned. Flux rewrites
-          # the digest from ImagePolicy flux-system:nanobot, so the marker line
-          # below it is the only image edit point and a hand-typed digest is a
-          # bug that the next reconcile reverts.
+          # The digest from ImagePolicy flux-system:nanobot, so the marked line
+          # below it is the only image Flux rewrites and a hand-typed digest is a
+          # bug that the next reconcile reverts. The prepare-tools init container
+          # repeats this digest and is not marked: a bump has to move both.
           # {"$imagepolicy": "flux-system:nanobot"}
           image: ghcr.io/smores56/homelabs-platform/nanobot@sha256:01a32bece3833808aa9e4d6f9527113232bbf6ff0a01665b1e865943d1e726e8 # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
@@ -74,8 +107,12 @@ spec:
             # writes an EPUB there and Calibre/OPDS sees it immediately.
             - name: BOOK_SHELF
               value: /data/books
+            # Temp files are the installers' scratch space (pip, npm, cargo
+            # all unpack there), so they belong on the tools PVC's sibling
+            # scratch volume, not on the 64Mi memory emptyDir: a build that
+            # fills 64Mi is evicted, and the emptyDir dies with the pod.
             - name: TMPDIR
-              value: /tmp
+              value: /data/tmp
             # The broker is the only place a credential exists and the only
             # reachable internal service. It is an HTTP API, not a forward
             # proxy: every request is $BROKER_URL/<logical-host>/<path>, and no
@@ -87,6 +124,26 @@ spec:
             # A git push that would prompt is a bug: there is no password.
             - name: GIT_TERMINAL_PROMPT
               value: "0"
+            # Toolchain roots on nanobot-tools (see pvc.yaml for the trust
+            # boundary). Every installer is pointed here so an install survives
+            # a restart and a fresh image; /opt/nanobot/bin stays on PATH because
+            # it holds the image's interpreter and the entrypoint execs `nanobot`.
+            - name: PATH
+              value: /data/home/tools/bin:/opt/nanobot/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+            - name: UV_TOOL_DIR
+              value: /data/home/tools/uv
+            - name: UV_TOOL_BIN_DIR
+              value: /data/home/tools/bin
+            - name: PIP_USER
+              value: "1"
+            - name: PYTHONUSERBASE
+              value: /data/home/tools/py
+            - name: NPM_CONFIG_PREFIX
+              value: /data/home/tools/npm
+            - name: CARGO_HOME
+              value: /data/home/tools/cargo
+            - name: GOPATH
+              value: /data/home/tools/go
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -132,11 +189,16 @@ spec:
               mountPath: /etc/nanobot/models/providers.yaml
               subPath: providers.yaml
               readOnly: true
-            # /data first, then the books share nested inside it.
+            # /data first, then the books share and the toolchain nested inside
+            # it.
             - name: scratch
               mountPath: /data
             - name: books
               mountPath: /data/books
+            - name: tools
+              mountPath: /data/home/tools
+            # Kept for the programs that hardcode /tmp instead of reading
+            # TMPDIR; the rootfs is read-only, so without it they fail outright.
             - name: tmp
               mountPath: /tmp
       volumes:
@@ -173,6 +235,9 @@ spec:
         - name: scratch
           persistentVolumeClaim:
             claimName: nanobot-scratch
+        - name: tools
+          persistentVolumeClaim:
+            claimName: nanobot-tools
         - name: tmp
           emptyDir:
             medium: Memory

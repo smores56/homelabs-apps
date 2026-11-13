@@ -33,3 +33,27 @@ spec:
   resources:
     requests:
       storage: 5Ti
+---
+# Trust boundary, reviewed as one: everything on this volume was installed at
+# runtime by the agent, so it persists unverified across restarts. gVisor
+# contains a kernel escape from a compromised process; it does not contain a
+# malicious package, which runs as uid 1000 with the agent's network, broker and
+# push reach. Nothing here is reproducible from the digest-pinned image, so a
+# wipe is the reset: delete the claim, Flux recreates it empty, and the agent
+# reinstalls only the tools a task actually needs.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nanobot-tools
+  labels:
+    app.kubernetes.io/name: nanobot
+    app.kubernetes.io/component: agent
+spec:
+  # The default local-path class, like nanobot-scratch: no pre-bound PV, and no
+  # app data ever lands here.
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 5Gi
