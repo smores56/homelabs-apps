@@ -94,30 +94,34 @@ repository:
 
 The pod now runs as uid/gid 1000 (`smores`), the owner of every host share.
 `nanobot-scratch` was written under the old fsGroup 65532, so its contents are
-migrated once. Nothing durable lives there; recreate the claim while Flux is
-suspended, because a plain scale-down is reverted by the next reconcile:
+migrated once. Nothing durable lives on either claim: `nanobot-tools` holds only
+tools the agent installed, so deleting it resets the toolchain (step 8). Recreate
+both claims together while Flux is suspended, because a plain scale-down is
+reverted by the next reconcile:
 
 ```sh
 flux -n tenant-apps suspend kustomization homelabs-apps
 cluster-kubectl -n tenant-apps scale deploy/nanobot --replicas=0
-cluster-kubectl -n tenant-apps delete pvc nanobot-scratch
+cluster-kubectl -n tenant-apps delete pvc nanobot-scratch nanobot-tools
 flux -n tenant-apps resume kustomization homelabs-apps
 ```
 
-On resume Flux recreates the PVC and the single replica, and the image renders
+On resume Flux recreates both PVCs and the single replica, and the image renders
 an empty home. `fsGroupChangePolicy: OnRootMismatch` fixes the volume root but
-does not rewrite files the old uid created. Repeat the delete for
-`nanobot-tools` once it exists (smores56/sdlc#626): the same uid change applies
-to it, and it must not be added to this repository before that ticket lands.
+does not rewrite files the old uid created. The `prepare-tools` init container
+creates `/data/tmp` and the empty toolchain roots, which Kubernetes never
+creates inside a mounted volume; the agent reinstalls a tool the first time a
+task needs it.
 
 Do not migrate the books tree: the host already owns it as 1000, and the pod must
 not chown a share other apps read. The mount is read-write so the agent adds
 files as that same uid; nothing in it changes ownership.
 
-Verify: `cluster-kubectl -n tenant-apps get pvc nanobot-books` prints `Bound`;
-`id` in the pod prints `uid=1000`; an EPUB written under `/data/books` is owned
-by `smores:users` on the host and still present after a pod restart; no mount
-translation for 65532 remains.
+Verify: `cluster-kubectl -n tenant-apps get pvc` prints `Bound` for
+`nanobot-books`, `nanobot-scratch` and `nanobot-tools`;
+`cluster-kubectl -n tenant-apps exec deploy/nanobot -- id` prints `uid=1000`; an
+EPUB written under `/data/books` is owned by `smores:users` on the host and still
+present after a pod restart; no mount translation for 65532 remains.
 
 ## 6. Merge tiers and rulesets
 
@@ -176,3 +180,40 @@ deleted. From a scratch shell in `tenant-apps`, a call to another namespace or
 to `169.254.169.254` times out; a public `https://` call succeeds, because the
 reviewed contract allows direct public egress (the broker still owns every
 credential and every internal address).
+
+## 8. The toolchain
+
+The image is deliberately barebones: `python`, `uv`, `bash`, coreutils, `curl`,
+`git`, `tar`, `gzip` and the CA bundle, no `jq`, `yq`, `ripgrep`, `kustomize`,
+`node` or `sdlc`. The agent installs a tool the first time a task needs it, and
+every install root sits on the `nanobot-tools` PVC so it survives a restart:
+
+| Variable | Value |
+| --- | --- |
+| `PATH` | `/data/home/tools/bin:/opt/nanobot/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin` |
+| `UV_TOOL_DIR` | `/data/home/tools/uv` |
+| `UV_TOOL_BIN_DIR` | `/data/home/tools/bin` |
+| `PIP_USER` | `1` |
+| `PYTHONUSERBASE` | `/data/home/tools/py` |
+| `NPM_CONFIG_PREFIX` | `/data/home/tools/npm` |
+| `CARGO_HOME` | `/data/home/tools/cargo` |
+| `GOPATH` | `/data/home/tools/go` |
+| `TMPDIR` | `/data/tmp` (scratch PVC, not the 64Mi memory emptyDir) |
+
+`/opt/nanobot/bin` stays on `PATH` ahead of the system directories: it holds the
+image's interpreter and the entrypoint `exec`s `nanobot`, so a `PATH` without it
+leaves the container with no command to run.
+
+The volume is a trust boundary, not a cache: a runtime install is unverified
+code that keeps the agent's uid, network and push reach, and gVisor bounds a
+kernel escape, not a malicious package. Wiping the claim (step 5) is the reset,
+and the agent reinstalls what a task needs. Do not add tool installs to the
+image; that would move unverified code into the trusted build.
+
+`scripts/verify.sh` lists every tool it needs that is missing and exits 2; in
+the pod those are installed into `$HOME/tools/bin`, which is first on `PATH` and
+is the same directory as `UV_TOOL_BIN_DIR`.
+
+Verify: after a restart, `ls "$UV_TOOL_BIN_DIR"` in the pod still lists the
+installed tools; `echo "$TMPDIR"` prints `/data/tmp`, and a 100Mi file written
+there lands on the scratch PVC rather than filling the memory emptyDir.
