@@ -61,7 +61,7 @@ These names are the seam; changing either side needs both.
 | Logical hosts | `neuralwatt`, `github-apps`, `github-platform-push`, `github-platform`, `tinyfish`, `loki`, `status` (`docs/broker.md` in `homelabs-platform`) |
 | DNS | CoreDNS in `kube-system`, pods labelled `k8s-app: kube-dns` |
 | Ingress | pods labelled `app.kubernetes.io/name: cloudflared` in namespace `ingress` (Cloudflare Access in front of `agent.sammohr.dev`) |
-| Image | `ghcr.io/smores56/homelabs-apps/nanobot@sha256:…`, digest-pinned |
+| Image | `ghcr.io/smores56/nix-config/nanobot@sha256:…`, digest-pinned |
 | Cloudflare | no token in this repository or the pod; the tunnel connector in `ingress` owns it |
 
 ## Verify

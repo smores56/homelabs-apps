@@ -34,11 +34,13 @@ not start until it is replaced, and `scripts/policy-scan.sh` **fails** on it
 (`image is a placeholder digest`), so CI is red until this step is done. That is
 the honest signal: the repository ships a manifest no registry can pull.
 
-1. The image wraps nix-config's `pkgs/nanobot` virtualenv plus the entrypoint
-   that implements `apps/nanobot/config/README.md` (render `config.json`, index
-   skills, load cron). Build it and push it as
-   `ghcr.io/smores56/homelabs-apps/nanobot:<git-sha>`.
-2. Read the registry digest and put it in the manifest:
+1. The image is `packages.nanobot-image` in `smores56/nix-config`; its
+   `publish-nanobot` workflow builds and pushes
+   `ghcr.io/smores56/nix-config/nanobot:sha-<12>` with the job token on any
+   change under `pkgs/nanobot/`, and prints the digest in the run summary. The
+   package must be public (Profile -> Packages -> nanobot -> visibility); the
+   node has no pull secret.
+2. Put the printed digest in the manifest:
 
    ```sh
    nix run nixpkgs#crane -- digest ghcr.io/smores56/homelabs-apps/nanobot:<git-sha>

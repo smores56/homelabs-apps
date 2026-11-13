@@ -35,13 +35,17 @@ spec:
           type: RuntimeDefault
       containers:
         - name: nanobot
-          # Built by packages.nanobot-image in smores56/nix-config; this digest
-          # is the published build of that recipe.
-          image: ghcr.io/smores56/homelabs-apps/nanobot@sha256:3644390e4306074560fe09abedcad8eced5b81a5a2c1f61696eebea6fa528681 # yamllint disable-line rule:line-length
+          # Built and published by packages.nanobot-image's workflow in
+          # smores56/nix-config (digest in that run's summary).
+          image: ghcr.io/smores56/nix-config/nanobot@sha256:ee87449723caa35ded9f910206cdca1589aed054182bc02d0ec4159a45f0d5d4 # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           args:
             - gateway
             - --foreground
+            # The probe and the tunnel both address 8080; the gateway's own
+            # default is not this port.
+            - --port
+            - "8080"
           ports:
             - name: http
               containerPort: 8080
