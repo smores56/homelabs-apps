@@ -154,11 +154,13 @@ grep -qE '^ +name: nanobot-policy$' "$root/apps/nanobot/deployment.yaml" ||
 grep -qE '^ +- name: NANOBOT_CONFIG_DIR$' "$root/apps/nanobot/deployment.yaml" ||
   note "deployment no longer sets NANOBOT_CONFIG_DIR"
 
-# The digest is Flux's to rewrite; without the marker a hand-typed image drifts.
-# shellcheck disable=SC2016 # the marker is a literal, not an expansion
-marker='# {"$imagepolicy": "flux-system:nanobot"}'
-grep -qF "$marker" "$root/apps/nanobot/deployment.yaml" ||
-  note "no Flux image policy marker in apps/nanobot/deployment.yaml"
+# The pin lives in the kustomization `images:` block; Flux rewrites the tag and
+# the digest there and kustomize applies both to every image occurrence.
+for field in tag digest; do
+  grep -qF "{\"\$imagepolicy\": \"flux-system:nanobot:${field}\"}" \
+    "$root/apps/nanobot/kustomization.yaml" ||
+    note "no Flux image policy :${field} marker in apps/nanobot/kustomization.yaml"
+done
 
 for skill in "$root"/apps/nanobot/config/skills/*/SKILL.md; do
   [ -e "$skill" ] || continue

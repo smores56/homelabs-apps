@@ -43,10 +43,9 @@ spec:
       # makes the layout before the agent starts; it is idempotent.
       initContainers:
         - name: prepare-tools
-          # Only mkdir runs here, but it is the same digest-pinned image the
-          # container below runs; both lines carry the marker so a bump moves both.
-          # {"$imagepolicy": "flux-system:nanobot"}
-          image: ghcr.io/smores56/homelabs-platform/nanobot@sha256:a57d6835ed3d1472105df9175c4362852c93b512172c200ac2cf0ca6051b055d # yamllint disable-line rule:line-length
+          # Only mkdir runs here; the tag and digest come from the kustomization
+          # image pin, so both containers move together.
+          image: ghcr.io/smores56/homelabs-platform/nanobot:build-5
           imagePullPolicy: IfNotPresent
           command:
             - mkdir
@@ -71,13 +70,10 @@ spec:
               mountPath: /data/home/tools
       containers:
         - name: nanobot
-          # Built and published by the trusted workflow in homelabs-platform;
-          # the image source and its digest are platform-owned. Flux rewrites
-          # The digest from ImagePolicy flux-system:nanobot; this marker and the
-          # init container before it are the only image fields Flux rewrites, and
-          # a hand-typed digest is a bug that the next reconcile reverts.
-          # {"$imagepolicy": "flux-system:nanobot"}
-          image: ghcr.io/smores56/homelabs-platform/nanobot@sha256:a57d6835ed3d1472105df9175c4362852c93b512172c200ac2cf0ca6051b055d # yamllint disable-line rule:line-length
+          # Built and published by the trusted workflow in homelabs-platform.
+          # The tag and digest come from the kustomization image pin (Flux
+          # rewrites them); a hand-typed digest is a bug the next reconcile reverts.
+          image: ghcr.io/smores56/homelabs-platform/nanobot:build-5
           imagePullPolicy: IfNotPresent
           args:
             - gateway

@@ -12,6 +12,15 @@ resources:
   - deployment.yaml
   - service.yaml
   - pvc.yaml
+
+# The image pin has one source of truth here. Flux rewrites the three marked
+# fields, and kustomize renders `repo:build-<n>@sha256:...` into every occurrence
+# (the agent container and the prepare-tools init container).
+images:
+  - name: ghcr.io/smores56/homelabs-platform/nanobot
+    newName: ghcr.io/smores56/homelabs-platform/nanobot # {"$imagepolicy": "flux-system:nanobot:name"}
+    newTag: build-5 # {"$imagepolicy": "flux-system:nanobot:tag"}
+    digest: sha256:1f4f88f667f676ec68418e4054470286ba222ea02d447306c4cf6f154225a3e3 # {"$imagepolicy": "flux-system:nanobot:digest"}
 # `namespace.yaml` and `networkpolicy.yaml` are deliberately absent: the
 # Namespace is cluster-scoped, and NetworkPolicies are platform-owned so the
 # tenant cannot widen its own isolation (the tenant Role denies them). Both
