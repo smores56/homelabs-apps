@@ -32,7 +32,7 @@ done
 
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 branch="agent/acceptance-${stamp}"
-identity=(-c user.name='homelabs-agent[bot]' -c user.email='homelabs-agent[bot]@users.noreply.github.com')
+identity=(-c user.name='homelabs-agent[bot]' -c user.email='356043151+homelabs-agent[bot]@users.noreply.github.com')
 work=$(mktemp -d)
 cleanup() { rm -rf "$work"; }
 trap cleanup EXIT
