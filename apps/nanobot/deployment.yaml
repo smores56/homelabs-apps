@@ -44,8 +44,8 @@ spec:
       initContainers:
         - name: prepare-tools
           # Only mkdir runs here, but it is the same digest-pinned image the
-          # container below runs: the Flux marker rewrites that line alone, so a
-          # digest bump moves both.
+          # container below runs; both lines carry the marker so a bump moves both.
+          # {"$imagepolicy": "flux-system:nanobot:digest"}
           image: ghcr.io/smores56/homelabs-platform/nanobot@sha256:a57d6835ed3d1472105df9175c4362852c93b512172c200ac2cf0ca6051b055d # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           command:
@@ -73,11 +73,10 @@ spec:
         - name: nanobot
           # Built and published by the trusted workflow in homelabs-platform;
           # the image source and its digest are platform-owned. Flux rewrites
-          # The digest from ImagePolicy flux-system:nanobot, so the marked line
-          # below it is the only image Flux rewrites and a hand-typed digest is a
-          # bug that the next reconcile reverts. The prepare-tools init container
-          # repeats this digest and is not marked: a bump has to move both.
-          # {"$imagepolicy": "flux-system:nanobot"}
+          # The digest from ImagePolicy flux-system:nanobot; this marker and the
+          # init container before it are the only image fields Flux rewrites, and
+          # a hand-typed digest is a bug that the next reconcile reverts.
+          # {"$imagepolicy": "flux-system:nanobot:digest"}
           image: ghcr.io/smores56/homelabs-platform/nanobot@sha256:a57d6835ed3d1472105df9175c4362852c93b512172c200ac2cf0ca6051b055d # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           args:

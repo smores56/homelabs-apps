@@ -156,7 +156,7 @@ grep -qE '^ +- name: NANOBOT_CONFIG_DIR$' "$root/apps/nanobot/deployment.yaml" |
 
 # The digest is Flux's to rewrite; without the marker a hand-typed image drifts.
 # shellcheck disable=SC2016 # the marker is a literal, not an expansion
-marker='# {"$imagepolicy": "flux-system:nanobot"}'
+marker='# {"$imagepolicy": "flux-system:nanobot:digest"}'
 grep -qF "$marker" "$root/apps/nanobot/deployment.yaml" ||
   note "no Flux image policy marker in apps/nanobot/deployment.yaml"
 
