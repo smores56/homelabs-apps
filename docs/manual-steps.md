@@ -9,10 +9,11 @@ There is no machine user and no PAT for the agent. The identity is the app;
 `homelabs-platform` owns the one-time creation steps (its
 `docs/manual-steps.md` step 1): permissions (Contents: read/write, Pull
 requests: read/write, Metadata: read), install on `homelabs-apps` and
-`homelabs-platform`, and the branch ruleset that confines writes to `agent/**`.
+`homelabs-platform`, and the branch ruleset that confines writes to `agent/*`.
 
 Verify: `gh api "/users/homelabs-agent%5Bbot%5D"` returns the bot user; the
-acceptance script probes the ref refusal (a push outside `agent/**`); and
+acceptance script probes both refusals (outside `agent/*`, and a workflow
+edit); and
 `gh api repos/smores56/homelabs-apps/installation` lists the installation.
 
 ## 2. Supply the app to the broker
