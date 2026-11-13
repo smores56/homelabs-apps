@@ -1,3 +1,8 @@
+# Contract copy, not part of the build: the tenant ServiceAccount may not write
+# NetworkPolicies (the agent must not be able to widen its own isolation). The
+# live objects are applied by homelabs-platform's network stage; this file is
+# what that stage must match.
+#
 # Everything in the namespace is denied in both directions first; the policies
 # below are the complete allowlist. A new dependency is a change to this file,
 # reviewed like any other.

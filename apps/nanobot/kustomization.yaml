@@ -12,9 +12,10 @@ resources:
   - deployment.yaml
   - service.yaml
   - pvc.yaml
-  - networkpolicy.yaml
-# `namespace.yaml` is deliberately absent: the Namespace is cluster-scoped and
-# the tenant ServiceAccount cannot write it. platform applies that file.
+# `namespace.yaml` and `networkpolicy.yaml` are deliberately absent: the
+# Namespace is cluster-scoped, and NetworkPolicies are platform-owned so the
+# tenant cannot widen its own isolation (the tenant Role denies them). Both
+# files are the reviewed contract the live objects must match.
 configMapGenerator:
   - name: nanobot-config
     options:

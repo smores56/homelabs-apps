@@ -41,7 +41,7 @@ platform owns the live object and this copy is the contract it must match.
 | Path | Contents |
 |---|---|
 | `deploy/kustomization.yaml` | the Flux entrypoint (`spec.path: deploy`) |
-| `apps/nanobot/` | Deployment, Service, scratch PVC, NetworkPolicies |
+| `apps/nanobot/` | Deployment, Service, scratch PVC (Namespace and NetworkPolicies are contract copies; platform owns them) |
 | `apps/nanobot/config/` | prompts, model catalog, cron entries, skills — see its README |
 | `scripts/verify.sh` | local + CI: kustomize, yamllint, kubeconform, shellcheck, policy scan |
 | `scripts/policy-scan.sh` | deny list for kinds, host escapes, tokens and config drift |
