@@ -12,8 +12,7 @@ requests: read/write, Metadata: read), install on `homelabs-apps` and
 `homelabs-platform`, and the branch ruleset that confines writes to `agent/**`.
 
 Verify: `gh api "/users/homelabs-agent%5Bbot%5D"` returns the bot user; the
-acceptance script probes both refusals (a push outside `agent/**`, and a push
-touching `.github/workflows/`); and
+acceptance script probes the ref refusal (a push outside `agent/**`); and
 `gh api repos/smores56/homelabs-apps/installation` lists the installation.
 
 ## 2. Supply the app to the broker
