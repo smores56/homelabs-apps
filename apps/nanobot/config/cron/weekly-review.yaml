@@ -2,8 +2,8 @@
 name: weekly-review
 schedule: "0 8 * * 1"
 enabled: true
-model: kimi-k3.1-pro
-reasoning: high
+# No per-job model: nanobot 0.4.1 runs cron agent turns on the default model
+# (agents.defaults, rendered from models/providers.yaml).
 prompt: |
   Review this repository as its reviewer: is every image digest still
   resolvable, does every NetworkPolicy rule still have a consumer, are the

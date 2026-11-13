@@ -28,13 +28,18 @@ provider token (`docs/broker.md` in `homelabs-platform`).
 
 ## Image-side contract
 
-The image's entrypoint must, on start:
+The image's entrypoint renders, on start (`pkgs/nanobot/render.py` in
+`nix-config`):
 
-1. render `$HOME/.nanobot/config.json` from `models/providers.yaml` (provider,
-   default model, windows, reasoning mapping) and `prompts/system.md`;
-2. register every directory under `$NANOBOT_CONFIG_DIR/skills` as a skill;
-3. load `$NANOBOT_CONFIG_DIR/cron/*.yaml` into the scheduler;
-4. refuse to start if a file is missing or unparsable, rather than falling back
+1. `$HOME/.nanobot/config.json` — `providers.<neuralwatt>.api_base`,
+   `agents.defaults` (provider, default model, context window, output cap) and
+   one `modelPresets` entry per catalog model;
+2. `prompts/system.md` → the workspace `AGENTS.md` (the system prompt's
+   project-instructions slot);
+3. every directory under `$NANOBOT_CONFIG_DIR/skills` → the workspace `skills/`;
+4. `cron/*.yaml` → the workspace `cron/jobs.json` (session-bound `agent_turn`
+   jobs, delivery `file` only);
+5. refuses to start if a file is missing or unparsable, rather than falling back
    to a default model.
 
 Nothing below the mount is copied back into Git. The agent may propose edits to
@@ -47,8 +52,11 @@ these files by committing them like any other manifest.
   token for the agent to hold, including a broker token.
 - A model id comes from the Neuralwatt catalog in `models/providers.yaml`; new
   ids arrive with their context window and output cap, not on their own.
-- A cron entry stays under 20 lines, names its model explicitly, and writes a
-  file under `/data/outbox`. It never sends anything outward. `/data/outbox` is
+- A cron entry stays under 20 lines and writes a file under `/data/outbox`
+  (`delivery: {kind: file, path: /data/outbox/...}`; any other kind fails the
+  start). nanobot 0.4.1 has no per-job model override, so a job runs on
+  `agents.defaults`; do not claim otherwise in the file. It never sends anything
+  outward. `/data/outbox` is
   on the scratch PVC and **nothing reads it**: it is the agent's own scratch
   record, not a delivery channel. The cluster digest the cluster sends toward
   Kanbei is written by the platform CronJob (`cluster-digest` in
