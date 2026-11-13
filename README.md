@@ -101,7 +101,7 @@ gh api -X PUT repos/smores56/homelabs-apps/branches/main/protection \
   "required_status_checks": null,
   "enforce_admins": true,
   "required_pull_request_reviews": null,
-  "restrictions": {"users": ["smores56"], "teams": [], "apps": ["smores56-homelabs-agent"]},
+  "restrictions": {"users": ["smores56"], "teams": [], "apps": ["homelabs-agent"]},
   "allow_force_pushes": false,
   "allow_deletions": false,
   "required_linear_history": true
@@ -120,6 +120,6 @@ repository, and classic branch protection on a private repository requires
 GitHub Pro (the rulesets API currently answers "Upgrade to GitHub Pro"). Once
 both hold, run the block above unchanged.
 
-The app `smores56-homelabs-agent` is the only non-human identity that pushes
+The app `homelabs-agent` is the only non-human identity that pushes
 here; it is listed in `restrictions.apps`, not `restrictions.users`. The CI check stays unrequired: pushing
 a commit that fails `verify` reports red on `main`, and the fix is a revert.

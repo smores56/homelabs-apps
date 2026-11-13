@@ -3,7 +3,7 @@
 Steps only the owner can do. Each one names its verification; nothing here is
 optional for the agent to work.
 
-## 1. Create the `smores56-homelabs-agent` GitHub App
+## 1. Create the `homelabs-agent` GitHub App
 
 There is no machine user and no PAT for the agent. The identity is the app;
 `homelabs-platform` owns the one-time creation steps (its
@@ -11,13 +11,13 @@ There is no machine user and no PAT for the agent. The identity is the app;
 requests: read/write, Metadata: read), install on `homelabs-apps` and
 `homelabs-platform`, and the branch ruleset that confines writes to `agent/*`.
 
-Verify: `gh api /users/smores56-homelabs-agent` returns the app's bot user, and
+Verify: `gh api "/users/homelabs-agent%5Bbot%5D"` returns the bot user, and
 `gh api repos/smores56/homelabs-apps/installation` lists the installation.
 
 ## 2. Supply the app to the broker
 
-The broker mints installation tokens from `smores56-homelabs-agent`; the agent
-holds none. Put the app id, the private key and both installation ids in the
+The broker mints installation tokens from `homelabs-agent`; the agent
+holds none. Put the app id, the private key and the installation id in the
 platform broker Secret (`homelabs-platform` `docs/manual-steps.md` step 10).
 Nothing enters this repository.
 
@@ -98,7 +98,7 @@ gh api -X PUT repos/smores56/homelabs-apps/branches/main/protection \
   "required_status_checks": null,
   "enforce_admins": true,
   "required_pull_request_reviews": null,
-  "restrictions": {"users": ["smores56"], "teams": [], "apps": ["smores56-homelabs-agent"]},
+  "restrictions": {"users": ["smores56"], "teams": [], "apps": ["homelabs-agent"]},
   "allow_force_pushes": false,
   "allow_deletions": false,
   "required_linear_history": true
@@ -109,7 +109,7 @@ JSON
 No status check is required: the branch is pushed to directly, and a required
 check would block every direct push. CI runs anyway; red `main` means revert.
 
-The app `smores56-homelabs-agent` is already the sole non-human pusher; it is
+The app `homelabs-agent` is already the sole non-human pusher; it is
 listed in `restrictions.apps`.
 
 Verify: `gh api repos/smores56/homelabs-apps/branches/main/protection -q '.restrictions.users[].login'`

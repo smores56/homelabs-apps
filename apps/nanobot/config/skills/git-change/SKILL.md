@@ -39,7 +39,7 @@ A platform change is a pull request, not a push: clone
 `agent/<topic>` branch, push it to the same URL, then POST the pull request to
 `$BROKER_URL/github-platform/repos/smores56/homelabs-platform/pulls` with that
 branch as `head` (same repository). The identity is the
-`smores56-homelabs-agent` app: the broker mints a short-lived, scoped token, so
+`homelabs-agent` app: the broker mints a short-lived, scoped token, so
 you never see one. Never push to any branch outside `agent/*`; the ruleset
 refuses it. Anything that needs a Secret, a
 namespace, RBAC, a Flux resource, a cluster-scoped object, a new image build, or
