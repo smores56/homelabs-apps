@@ -32,9 +32,12 @@ Secrets, PVCs, logs, or service DNS names; propose a diff to the human instead.
 
 ## Network
 
-`BROKER_URL` is the only outbound address. The broker is an HTTP API
+`BROKER_URL` is the only address that carries a credential and the only route to
+an internal service: the broker is an HTTP API
 (`$BROKER_URL/<logical-host>/<path>`), not a forward proxy: no `CONNECT`, no
-`HTTP_PROXY`, no credentials. A new external service is a broker enrollment in
+`HTTP_PROXY`. The network contract also allows direct public 80/443 with every
+private, CGNAT, metadata, loopback and ULA range excepted, so a download needs
+no rule; a service that needs a secret is still a broker enrollment in
 `homelabs-platform`, not a new rule here. `scripts/policy-scan.sh` rejects a
 config file that names a real upstream or asks for a proxy.
 
@@ -47,8 +50,8 @@ config file that names a real upstream or asks for a proxy.
 - NetworkPolicy is default-deny; a new dependency is a new rule in
   `apps/nanobot/networkpolicy.yaml`, not a wider selector.
 - Config is declarative under `apps/nanobot/config/`; read its README before
-  adding a prompt, skill, cron entry or model. No config value duplicates a
-  Deployment env var.
+  adding a skill or cron entry. The prompt, model catalog and image source are
+  platform-owned and checked by `scripts/policy-scan.sh`.
 - Comments explain why a rule exists. Delete dead files instead of commenting
   them out.
 
@@ -67,6 +70,6 @@ acceptance is `scripts/acceptance-t8.sh` inside the pod; it skips without
 ## Docs
 
 `README.md` holds the tenant model and the platform seams; `docs/manual-steps.md`
-holds the steps only a human can do (GitHub App, credential files, image digest, broker
-wiring, tunnel route). Keep both current when a seam moves; neither carries
-TODO/TBD items.
+holds the steps only a human can do (GitHub App, credential files, image
+automation, merge tiers, storage migration, broker wiring, tunnel route). Keep
+both current when a seam moves; neither carries TODO/TBD items.

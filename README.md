@@ -41,16 +41,28 @@ platform owns the live object and this copy is the contract it must match.
 | Path | Contents |
 |---|---|
 | `deploy/kustomization.yaml` | the Flux entrypoint (`spec.path: deploy`) |
-| `apps/nanobot/` | Deployment, Service, scratch PVC (Namespace and NetworkPolicies are contract copies; platform owns them) |
-| `apps/nanobot/config/` | prompts, model catalog, cron entries, skills — see its README |
+| `apps/nanobot/` | Deployment, Service, scratch + books PVCs (Namespace and NetworkPolicies are contract copies; platform owns them) |
+| `apps/nanobot/config/` | skills and cron — the tenant-owned half; prompt and model catalog are platform's |
 | `scripts/verify.sh` | local + CI: kustomize, yamllint, kubeconform, shellcheck, policy scan |
-| `scripts/policy-scan.sh` | deny list for kinds, host escapes, tokens and config drift |
+| `scripts/policy-scan.sh` | deny list for kinds, host escapes, tokens, platform-owned paths and the network contract |
+| `scripts/apply-merge-tiers.sh` | idempotent GitHub rulesets for the per-repository merge tiers |
 | `scripts/acceptance-t8.sh` | live T8 test: model call, apps push, agent branch, same-repo platform PR through the broker |
-| `docs/manual-steps.md` | operator steps: the GitHub App, broker credential files, image digest, wiring |
+| `docs/manual-steps.md` | operator steps: the GitHub App, broker credential files, image automation, merge tiers, storage and uid migration |
 
 ## Contracts with platform
 
 These names are the seam; changing either side needs both.
+
+The mounts split by owner:
+
+| Component | Store | Mount |
+|---|---|---|
+| Prompt and model catalog | platform `nanobot-policy` ConfigMap, keys `system-prompt.md` and `providers.yaml` | `/etc/nanobot/prompts/system.md`, `/etc/nanobot/models/providers.yaml` (`subPath`) |
+| Skills and cron | tenant `nanobot-config` ConfigMap | `/etc/nanobot/skills`, `/etc/nanobot/cron` |
+| Library | PVC `nanobot-books` over platform PV `nanobot-books-data` (`/mnt/data/books`, the Calibre share) | `/data/books` (`BOOK_SHELF`) |
+| Scratch | PVC `nanobot-scratch` | `/data/home` (`HOME`), `/data/outbox` |
+
+The seams themselves:
 
 | Seam | Value |
 |---|---|
@@ -60,8 +72,9 @@ These names are the seam; changing either side needs both.
 | Broker | `BROKER_URL=http://broker.broker.svc.cluster.local:8080`, pods labelled `app.kubernetes.io/name: broker` in tier `broker` |
 | Logical hosts | `neuralwatt`, `github-apps`, `github-platform-push`, `github-platform`, `tinyfish`, `loki`, `status` (`docs/broker.md` in `homelabs-platform`) |
 | DNS | CoreDNS in `kube-system`, pods labelled `k8s-app: kube-dns` |
+| Public egress | direct 80/443; private, CGNAT, metadata, loopback and ULA ranges refused (`networkpolicy.yaml`) |
 | Ingress | pods labelled `app.kubernetes.io/name: cloudflared` in namespace `ingress` (Cloudflare Access in front of `agent.sammohr.dev`) |
-| Image | `ghcr.io/smores56/nix-config/nanobot@sha256:…`, digest-pinned |
+| Image | `ghcr.io/smores56/nix-config/nanobot@sha256:…`, digest-pinned and rewritten by Flux `ImagePolicy flux-system:nanobot`; source is platform-owned |
 | Cloudflare | no token in this repository or the pod; the tunnel connector in `ingress` owns it |
 
 ## Verify
@@ -87,39 +100,61 @@ cluster-kubectl -n tenant-apps exec deploy/nanobot -- bash scripts/acceptance-t8
 It skips with exit 0 when `BROKER_URL` is unset (i.e. outside the agent pod) and
 never reads or prints a token.
 
-## Branch protection
+## Merge tiers
 
-`main` is protected for the owner: force pushes, deletions and merge commits are
-refused, and only the accounts in `restrictions.users` may push. It is applied
-once, after the first push (a branch must exist), from a checkout of this
-repository:
+Each repository is a tier, recorded in an idempotent script
+(`scripts/apply-merge-tiers.sh`) and enforced as a GitHub ruleset when a token
+with **Administration: write** runs it. The script updates the ruleset with the
+tier's name and never creates a second one. The verified applied state (with
+ruleset ids) is in `docs/manual-steps.md` step 6.
 
 ```sh
-gh api -X PUT repos/smores56/homelabs-apps/branches/main/protection \
-  --input - <<'JSON'
-{
-  "required_status_checks": null,
-  "enforce_admins": true,
-  "required_pull_request_reviews": null,
-  "restrictions": {"users": ["smores56"], "teams": [], "apps": ["homelabs-agent"]},
-  "allow_force_pushes": false,
-  "allow_deletions": false,
-  "required_linear_history": true
-}
-JSON
-gh api repos/smores56/homelabs-apps/branches/main/protection
+bash scripts/apply-merge-tiers.sh
+gh api repos/smores56/homelabs-apps/rulesets
 ```
 
-Status checks are deliberately not required: this branch is pushed to directly,
-and a required check would block every direct push because a new commit has no
-status yet. CI still runs on each push — a red `verify` on `main` means revert,
-which is the rule the agent's system prompt states.
+| Repository | Tier | Effective rule |
+|---|---|---|
+| `smores56/sdlc` | agent-writable | recorded; the free plan refuses rulesets, so the guard is the broker scope |
+| `smores56/homelabs-apps` | agent-writable | same as `sdlc` |
+| `smores56/nix-config` | human review | `main` requires a PR and one approving review |
+| `smores56/kanbei` | human review | same, plus Code Owners and unattributed-change approvals |
+| `smores56/homelabs-platform` | human only | no agent installation and no agent broker scope; `main` requires a PR and one review |
 
-Not applied yet: the call needs a token with **Administration: write** on the
-repository, and classic branch protection on a private repository requires
-GitHub Pro (the rulesets API currently answers "Upgrade to GitHub Pro"). Once
-both hold, run the block above unchanged.
+Every ruleset lists the repository Admin role as a bypass actor (the script also
+adds `smores56` explicitly), so the owner's local commits still land directly;
+`homelabs-agent` has no bypass. In the agent-writable tier the agent pushes
+`main` directly and CI reports on the result. In the review tier its work lands
+on `agent/*` and stops at the PR.
+`smores56/sdlc` is private on a free plan, where the rulesets API answers 403
+("Upgrade to GitHub Pro"); the script reports that and leaves it unapplied, so
+the guard there is the broker scope and the App installation, not GitHub.
+Status checks are deliberately not required: a required check would block every
+direct push because a new commit has no status yet. CI still runs on each push; a
+red `verify` on `main` means revert.
 
-The app `homelabs-agent` is the only non-human identity that pushes
-here; it is listed in `restrictions.apps`, not `restrictions.users`. The CI check stays unrequired: pushing
-a commit that fails `verify` reports red on `main`, and the fix is a revert.
+### Path guards
+
+A ruleset cannot say "this path is platform-owned", so that split is enforced at
+three other layers:
+
+- **Prompt and model catalog:** `apps/nanobot/config/` holds only skills and
+  cron. The prompt and `providers.yaml` live in platform's `nanobot-policy`
+  ConfigMap, admission pins the two mount paths, and `scripts/policy-scan.sh`
+  fails if a copy or a generator entry reappears here.
+- **Image source:** platform builds and publishes the image, and Flux's
+  `ImagePolicy flux-system:nanobot` is the only writer of the digest. The
+  Deployment carries the matching marker; policy-scan fails without it.
+- **`.github/` is an agent-writable residual:** the workflow runs from the
+  agent's own commit, so a tenant push can change CI. It cannot change what CI
+  runs with — `permissions: contents: read`, no persisted checkout credential,
+  every action pinned by SHA — but `verify` is a fast local check, not a
+  security boundary.
+
+### Trusted-CI boundary
+
+The trusted boundary is platform's pinned build/push workflow plus cluster
+admission. That workflow holds the only token that can publish an image, and
+admission pins the image prefix, the policy mount and the uid. This repository's
+CI is a lint gate on the tenant's own commit; it earns no trust it cannot be
+given by the agent that writes it.

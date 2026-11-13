@@ -27,17 +27,25 @@ spec:
       enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 65532
-        runAsGroup: 65532
-        fsGroup: 65532
+        # The human's uid owns every host share, so the pod writes as the human
+        # does: Calibre and the OPDS server read the EPUBs with no per-share
+        # translation layer. OnRootMismatch makes the fsGroup pass a no-op after
+        # the first mount, so a restart never walks the books tree.
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: nanobot
-          # Built and published by packages.nanobot-image's workflow in
-          # smores56/nix-config (digest in that run's check-run annotation).
-          image: ghcr.io/smores56/nix-config/nanobot@sha256:3c8fb2cb5b9277ba75e1584710cc2d0cffcd1c46e87586aa9ee4c2b0e4cf4cae # yamllint disable-line rule:line-length
+          # Built and published by the trusted workflow in homelabs-platform;
+          # the image source and its digest are platform-owned. Flux rewrites
+          # the digest from ImagePolicy flux-system:nanobot, so the marker line
+          # below it is the only image edit point and a hand-typed digest is a
+          # bug that the next reconcile reverts.
+          # {"$imagepolicy": "flux-system:nanobot"}
+          image: ghcr.io/smores56/homelabs-platform/nanobot@sha256:48ca60a5200e4e42376fcf37b213419ef6b7e66e3cb055675b36c5c21e80a4fd # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           args:
             - gateway
@@ -62,11 +70,16 @@ spec:
             # State lives on the scratch PVC; the image rootfs is read-only.
             - name: HOME
               value: /data/home
+            # The library is the existing books share, not a copy: nanobot
+            # writes an EPUB there and Calibre/OPDS sees it immediately.
+            - name: BOOK_SHELF
+              value: /data/books
             - name: TMPDIR
               value: /tmp
-            # The broker is the only egress and the only place a credential
-            # exists. It is an HTTP API, not a forward proxy: every request is
-            # $BROKER_URL/<logical-host>/<path>, and no request carries a token.
+            # The broker is the only place a credential exists and the only
+            # reachable internal service. It is an HTTP API, not a forward
+            # proxy: every request is $BROKER_URL/<logical-host>/<path>, and no
+            # request carries a token.
             - name: BROKER_URL
               value: http://broker.broker.svc.cluster.local:8080
             - name: TINYFISH_BASE_URL
@@ -99,30 +112,64 @@ spec:
             periodSeconds: 30
             failureThreshold: 3
           volumeMounts:
-            - name: config
-              mountPath: /etc/nanobot
+            # The tenant ConfigMap is projected as two directory mounts. One
+            # mount at /etc/nanobot would make the policy subPath targets
+            # nested mounts, and kubelet pre-creates a nested mountpoint as a
+            # directory (kubernetes#121294), so the file bind would fail.
+            - name: skills
+              mountPath: /etc/nanobot/skills
               readOnly: true
+            - name: cron
+              mountPath: /etc/nanobot/cron
+              readOnly: true
+            # platform-owned prompt and model catalog, pinned by admission to
+            # these two paths, so a tenant push cannot shadow them.
+            - name: policy
+              mountPath: /etc/nanobot/prompts/system.md
+              subPath: system.md
+              readOnly: true
+            - name: policy
+              mountPath: /etc/nanobot/models/providers.yaml
+              subPath: providers.yaml
+              readOnly: true
+            # /data first, then the books share nested inside it.
             - name: scratch
               mountPath: /data
+            - name: books
+              mountPath: /data/books
             - name: tmp
               mountPath: /tmp
       volumes:
-        - name: config
+        # One ConfigMap, two projections: skills and cron are the tenant-owned
+        # half of the config tree.
+        - name: skills
           configMap:
             name: nanobot-config
             items:
-              - key: system-prompt.md
-                path: prompts/system.md
-              - key: providers.yaml
-                path: models/providers.yaml
-              - key: cron-weekly-review.yaml
-                path: cron/weekly-review.yaml
               - key: skill-broker-requests.md
-                path: skills/broker-requests/SKILL.md
+                path: broker-requests/SKILL.md
               - key: skill-git-change.md
-                path: skills/git-change/SKILL.md
+                path: git-change/SKILL.md
               - key: skill-tinyfish-search.md
-                path: skills/tinyfish-search/SKILL.md
+                path: tinyfish-search/SKILL.md
+        - name: cron
+          configMap:
+            name: nanobot-config
+            items:
+              - key: cron-weekly-review.yaml
+                path: weekly-review.yaml
+        # Created by homelabs-platform, never by this repository.
+        - name: policy
+          configMap:
+            name: nanobot-policy
+            items:
+              - key: system.md
+                path: system.md
+              - key: providers.yaml
+                path: providers.yaml
+        - name: books
+          persistentVolumeClaim:
+            claimName: nanobot-books
         - name: scratch
           persistentVolumeClaim:
             claimName: nanobot-scratch
