@@ -129,15 +129,36 @@ if hits=$(grep -RInE '^[[:space:]]*(proxy|https_proxy|HTTP_PROXY|HTTPS_PROXY)[[:
   note "config asks for a forward proxy; the broker is an HTTP API: $hits"
 fi
 
-# --- config tree contract ----------------------------------------------------
+# --- platform-owned paths ----------------------------------------------------
 
-if ! grep -qE '^api_base: http://broker\.broker\.svc\.cluster\.local:8080/neuralwatt/v1$' \
-  "$root/apps/nanobot/config/models/providers.yaml"; then
-  note "providers.yaml does not point at the broker's neuralwatt logical host"
+# The prompt and the model catalog are platform-owned (smores56/sdlc#639). A copy
+# here is a shadow the agent could edit and the next restart would discard, and
+# it would let a tenant push change the agent's instructions.
+for owned in config/prompts/system.md config/models/providers.yaml; do
+  if [ -e "$root/apps/nanobot/$owned" ]; then
+    note "platform-owned file checked in: apps/nanobot/$owned"
+  fi
+done
+if hits=$(grep -nE 'config/(prompts/system\.md|models/providers\.yaml)' \
+  "$root/apps/nanobot/kustomization.yaml"); then
+  note "kustomization publishes a platform-owned file: $hits"
 fi
-if ! grep -qE '^  default: ' "$root/apps/nanobot/config/models/providers.yaml"; then
-  note "providers.yaml has no default model"
-fi
+
+# Admission pins these mount paths; the tenant half only has to keep them.
+for pinned in /etc/nanobot/prompts/system.md /etc/nanobot/models/providers.yaml; do
+  grep -qF "mountPath: $pinned" "$root/apps/nanobot/deployment.yaml" ||
+    note "deployment does not mount the platform policy at $pinned"
+done
+grep -qE '^ +name: nanobot-policy$' "$root/apps/nanobot/deployment.yaml" ||
+  note "deployment does not source the platform nanobot-policy ConfigMap"
+grep -qE '^ +- name: NANOBOT_CONFIG_DIR$' "$root/apps/nanobot/deployment.yaml" ||
+  note "deployment no longer sets NANOBOT_CONFIG_DIR"
+
+# The digest is Flux's to rewrite; without the marker a hand-typed image drifts.
+# shellcheck disable=SC2016 # the marker is a literal, not an expansion
+marker='# {"$imagepolicy": "flux-system:nanobot"}'
+grep -qF "$marker" "$root/apps/nanobot/deployment.yaml" ||
+  note "no Flux image policy marker in apps/nanobot/deployment.yaml"
 
 for skill in "$root"/apps/nanobot/config/skills/*/SKILL.md; do
   [ -e "$skill" ] || continue
@@ -154,14 +175,33 @@ for cron in "$root"/apps/nanobot/config/cron/*.yaml; do
   grep -qE '^  path: /data/outbox/' "$cron" || note "$cron does not deliver under /data/outbox"
 done
 
-# ConfigMap keys must equal the Deployment's mounted item keys (plus prompt and
-# model files), so a config edit cannot silently go unread.
+# ConfigMap keys must equal the tenant-owned mounts (cron and skills), so a
+# config edit cannot silently go unread. The prompt and model keys mount from
+# platform's nanobot-policy and are deliberately not compared to this generator.
 mapfile -t config_keys < <(sed -nE 's/^[[:space:]]*- ([a-z0-9-]+\.(md|yaml))=.*/\1/p' \
   "$root/apps/nanobot/kustomization.yaml" | sort)
-mapfile -t mount_keys < <(sed -nE 's/^[[:space:]]+- key: (.*)$/\1/p' "$root/apps/nanobot/deployment.yaml" | sort)
+mapfile -t mount_keys < <(awk '
+  /^ +- name: (skills|cron)$/ { tenant = 1; next }
+  /^ +- name: / { tenant = 0 }
+  tenant && /^ +- key: / { print $3 }
+' "$root/apps/nanobot/deployment.yaml" | sort)
 if [ "${config_keys[*]}" != "${mount_keys[*]}" ]; then
   note "ConfigMap keys (${config_keys[*]}) differ from Deployment mounts (${mount_keys[*]})"
 fi
+
+# --- network contract --------------------------------------------------------
+
+# The public-egress rule is only safe with its exception list; dropping a range
+# re-opens the cluster's own networks (and the metadata endpoint) to the agent.
+for cidr in 0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 127.0.0.0/8 169.254.0.0/16 \
+  172.16.0.0/12 192.168.0.0/16 ::1/128 ::ffff:0:0/96 fc00::/7 fe80::/10; do
+  grep -qF -- "- $cidr" "$root/apps/nanobot/networkpolicy.yaml" ||
+    note "networkpolicy public egress no longer excepts $cidr"
+done
+for cidr in 0.0.0.0/0 ::/0; do
+  grep -qF -- "cidr: $cidr" "$root/apps/nanobot/networkpolicy.yaml" ||
+    note "networkpolicy has no public egress rule for $cidr"
+done
 
 if [ "$fail" -ne 0 ]; then
   echo "policy scan failed" >&2
