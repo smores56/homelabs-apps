@@ -35,9 +35,9 @@ spec:
           type: RuntimeDefault
       containers:
         - name: nanobot
-          # PLACEHOLDER DIGEST: 64 zeroes are not a real manifest. Replace with
-          # the digest published by the image build (docs/manual-steps.md).
-          image: ghcr.io/smores56/homelabs-apps/nanobot@sha256:0000000000000000000000000000000000000000000000000000000000000000 # yamllint disable-line rule:line-length
+          # Built by packages.nanobot-image in smores56/nix-config; this digest
+          # is the published build of that recipe.
+          image: ghcr.io/smores56/homelabs-apps/nanobot@sha256:3644390e4306074560fe09abedcad8eced5b81a5a2c1f61696eebea6fa528681 # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           args:
             - gateway
