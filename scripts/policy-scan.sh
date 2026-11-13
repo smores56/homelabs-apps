@@ -189,6 +189,50 @@ if [ "${config_keys[*]}" != "${mount_keys[*]}" ]; then
   note "ConfigMap keys (${config_keys[*]}) differ from Deployment mounts (${mount_keys[*]})"
 fi
 
+# The toolchain roots are the trust boundary apps/nanobot/pvc.yaml describes: an
+# install has to land on nanobot-tools (5Gi, so a pip or cargo build fits) and
+# never on the scratch volume or the 64Mi memory emptyDir, which dies with the
+# pod. A claim that is not declared here is a volume nobody reviewed.
+mapfile -t claims < <(awk '/^ +claimName: / { print $2 }' "$rendered" | LC_ALL=C sort -u)
+expected_claims='nanobot-books nanobot-scratch nanobot-tools'
+if [ "${#claims[@]}" -gt 0 ] && [ "${claims[*]}" != "$expected_claims" ]; then
+  note "pod volumes claim (${claims[*]}); the reviewed set is ($expected_claims)"
+fi
+for claim in "${claims[@]}"; do
+  grep -qE "^  name: ${claim}$" "$root/apps/nanobot/pvc.yaml" ||
+    note "claim $claim is not declared in apps/nanobot/pvc.yaml"
+done
+grep -qF 'mountPath: /data/home/tools' "$root/apps/nanobot/deployment.yaml" ||
+  note "deployment does not mount nanobot-tools at /data/home/tools"
+
+# Every env var is reviewed. A key outside the allowlist widens the agent's reach
+# (a proxy, a credential path, a second state root) in a diff nobody reads.
+mapfile -t env_names < <(awk '
+  /^ *env:$/ { match($0, /[^ ]/); depth = RSTART - 1; inside = 1; next }
+  inside {
+    match($0, /[^ ]/)
+    lead = RSTART - 1
+    if (lead < depth) { inside = 0; next }
+    if (lead == depth) {
+      if ($0 ~ /^ *- name: /) { print $3; next }
+      inside = 0
+    }
+  }
+' "$rendered" | LC_ALL=C sort)
+expected_env='BOOK_SHELF BROKER_URL CARGO_HOME GIT_TERMINAL_PROMPT GOPATH HOME NANOBOT_CONFIG_DIR NPM_CONFIG_PREFIX PATH PIP_USER PYTHONUSERBASE TINYFISH_BASE_URL TMPDIR UV_TOOL_BIN_DIR UV_TOOL_DIR'
+if [ "${env_names[*]}" != "$expected_env" ]; then
+  note "deployment env (${env_names[*]}) differs from the reviewed allowlist ($expected_env)"
+fi
+# The install roots are all on nanobot-tools, and TMPDIR is on the scratch PVC.
+for key in UV_TOOL_DIR UV_TOOL_BIN_DIR PYTHONUSERBASE NPM_CONFIG_PREFIX CARGO_HOME GOPATH; do
+  grep -A1 -E "^ +- name: ${key}\$" "$root/apps/nanobot/deployment.yaml" |
+    grep -qF 'value: /data/home/tools/' ||
+    note "$key does not point into /data/home/tools"
+done
+grep -A1 -E '^ +- name: TMPDIR$' "$root/apps/nanobot/deployment.yaml" |
+  grep -qF 'value: /data/tmp' ||
+  note "TMPDIR is not /data/tmp on the scratch PVC"
+
 # --- network contract --------------------------------------------------------
 
 # The public-egress rule is only safe with its exception list; dropping a range

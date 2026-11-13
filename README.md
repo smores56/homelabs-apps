@@ -41,7 +41,7 @@ platform owns the live object and this copy is the contract it must match.
 | Path | Contents |
 |---|---|
 | `deploy/kustomization.yaml` | the Flux entrypoint (`spec.path: deploy`) |
-| `apps/nanobot/` | Deployment, Service, scratch + books PVCs (Namespace and NetworkPolicies are contract copies; platform owns them) |
+| `apps/nanobot/` | Deployment, Service, scratch + books + tools PVCs (Namespace and NetworkPolicies are contract copies; platform owns them) |
 | `apps/nanobot/config/` | skills and cron — the tenant-owned half; prompt and model catalog are platform's |
 | `scripts/verify.sh` | local + CI: kustomize, yamllint, kubeconform, shellcheck, policy scan |
 | `scripts/policy-scan.sh` | deny list for kinds, host escapes, tokens, platform-owned paths and the network contract |
@@ -60,7 +60,8 @@ The mounts split by owner:
 | Prompt and model catalog | platform `nanobot-policy` ConfigMap, keys `system-prompt.md` and `providers.yaml` | `/etc/nanobot/prompts/system.md`, `/etc/nanobot/models/providers.yaml` (`subPath`) |
 | Skills and cron | tenant `nanobot-config` ConfigMap | `/etc/nanobot/skills`, `/etc/nanobot/cron` |
 | Library | PVC `nanobot-books` over platform PV `nanobot-books-data` (`/mnt/data/books`, the Calibre share) | `/data/books` (`BOOK_SHELF`) |
-| Scratch | PVC `nanobot-scratch` | `/data/home` (`HOME`), `/data/outbox` |
+| Scratch | PVC `nanobot-scratch` | `/data/home` (`HOME`), `/data/outbox`, `/data/tmp` (`TMPDIR`) |
+| Toolchain | PVC `nanobot-tools` (a trust boundary: runtime installs, wiped to reset) | `/data/home/tools` (`PATH`, `UV_TOOL_DIR`, `PIP_USER`/`PYTHONUSERBASE`, `NPM_CONFIG_PREFIX`, `CARGO_HOME`, `GOPATH`) |
 
 The seams themselves:
 

@@ -5,12 +5,21 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
 
+missing=()
 for tool in kustomize yamllint kubeconform; do
-  command -v "$tool" >/dev/null || {
-    echo "$tool is not on PATH; run this through 'nix shell nixpkgs#kustomize nixpkgs#kubeconform nixpkgs#yamllint nixpkgs#shellcheck -c bash scripts/verify.sh'" >&2
-    exit 2
-  }
+  command -v "$tool" >/dev/null || missing+=("$tool")
 done
+if [ "${#missing[@]}" -ne 0 ]; then
+  # In the pod the toolchain lives on the nanobot-tools PVC, so a missing tool is
+  # an install the agent owes, not a broken checkout; on a workstation it is the
+  # nix shell. Both are named, with the pod's target first.
+  echo "missing: ${missing[*]}" >&2
+  echo "install each into \$HOME/tools/bin (already first on PATH) with" \
+    "'uv tool install', 'pip install --user', 'npm install -g' or 'cargo install'" >&2
+  echo "on a workstation, run this through 'nix shell nixpkgs#kustomize" \
+    "nixpkgs#kubeconform nixpkgs#yamllint nixpkgs#shellcheck -c bash scripts/verify.sh'" >&2
+  exit 2
+fi
 
 render=$(mktemp -t render-XXXXXX.yaml)
 trap 'rm -f "$render"' EXIT
