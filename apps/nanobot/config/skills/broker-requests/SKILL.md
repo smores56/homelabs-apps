@@ -39,3 +39,5 @@ Refusals are deliberate and not retryable:
 - `502 cross_host_redirect`: the upstream tried to send you elsewhere; stop.
 - `405 connect_not_allowed`: no CONNECT, no forward proxy.
 - `404 unknown_logical_host`: that host is not enrolled; ask the human.
+- `503 credential_unavailable`: the broker could not mint or read a credential.
+  This one is transient: retry after a short pause, and report it if it persists.

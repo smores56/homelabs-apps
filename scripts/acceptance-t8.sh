@@ -97,12 +97,21 @@ if git -C "$work/platform" push -q origin "HEAD:probe/denied-$stamp" 2>"$work/pr
 fi
 say "refused: $(head -c 200 "$work/probe1.err")"
 
-# The app's Workflows permission (No access) does NOT gate pushes: on
-# 2026-11-12 an installation token with contents:write pushed a workflow edit to
-# an agent/* branch. The control for `.github/` changes is the Code Owners
-# review required on main, not this token.
+# The app has no Workflows permission, so GitHub must refuse this push even on
+# an agent branch. A local probe needs git's credential helper disabled, or it
+# authenticates as the owner and the control looks absent.
+say "== the app cannot push a workflow change"
+git -C "$work/platform" checkout -q -b "agent/workflows-probe-$stamp" "$branch"
+printf '\n# probe\n' >>"$work/platform/.github/workflows/ci.yml"
+git -C "$work/platform" add .github/workflows/ci.yml
+git -C "$work/platform" "${identity[@]}" commit -q -m "test: workflow probe"
+if git -C "$work/platform" push -q origin "agent/workflows-probe-$stamp" 2>"$work/probe2.err"; then
+  git -C "$work/platform" push -q origin ":agent/workflows-probe-$stamp" || true
+  fail "a workflow change was pushed; the app's Workflows permission is not off"
+fi
+say "refused: $(head -c 200 "$work/probe2.err")"
 
-# 5. Clean up the branches over the git transport. A failed delete is reported,
+# 6. Clean up the branches over the git transport. A failed delete is reported,
 # not fatal: the PR is already closed and a leftover branch is visible in Git.
 if ! git -C "$work/apps" push -q broker ":$branch"; then
   say "warning: could not delete $branch from homelabs-apps"
