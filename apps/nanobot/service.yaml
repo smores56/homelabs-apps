@@ -10,7 +10,9 @@ spec:
   selector:
     app.kubernetes.io/name: nanobot
   ports:
-    - name: http
+    # The tunnel enters on 80 and lands on the WebUI/websocket listener; the
+    # gateway's health listener (8080) never needs Service exposure.
+    - name: ui
       port: 80
-      targetPort: http
+      targetPort: 8765
       protocol: TCP

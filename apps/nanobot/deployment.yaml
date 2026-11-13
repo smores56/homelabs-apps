@@ -47,8 +47,13 @@ spec:
             - --port
             - "8080"
           ports:
+            # Health/gateway API; the probes use this one.
             - name: http
               containerPort: 8080
+              protocol: TCP
+            # WebUI and websocket channel; the Service and the tunnel use this.
+            - name: ui
+              containerPort: 8765
               protocol: TCP
           env:
             # The image renders $HOME/.nanobot/config.json from this tree.
