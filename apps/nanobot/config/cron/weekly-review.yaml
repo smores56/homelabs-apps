@@ -2,8 +2,9 @@
 name: weekly-review
 schedule: "0 8 * * 1"
 enabled: true
-# No per-job model: nanobot 0.4.1 runs cron agent turns on the default model
-# (agents.defaults, rendered from models/providers.yaml).
+# Must equal models.default: nanobot 0.4.1 has no per-job override, and the
+# renderer refuses a job that claims another model.
+model: deepseek-v4.1-flash
 prompt: |
   Review this repository as its reviewer: is every image digest still
   resolvable, does every NetworkPolicy rule still have a consumer, are the

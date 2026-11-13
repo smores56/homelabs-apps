@@ -52,10 +52,11 @@ these files by committing them like any other manifest.
   token for the agent to hold, including a broker token.
 - A model id comes from the Neuralwatt catalog in `models/providers.yaml`; new
   ids arrive with their context window and output cap, not on their own.
-- A cron entry stays under 20 lines and writes a file under `/data/outbox`
+- A cron entry stays under 20 lines, writes a file under `/data/outbox`
   (`delivery: {kind: file, path: /data/outbox/...}`; any other kind fails the
-  start). nanobot 0.4.1 has no per-job model override, so a job runs on
-  `agents.defaults`; do not claim otherwise in the file. It never sends anything
+  start), and names a `model`. nanobot 0.4.1 has no per-job model override, so
+  the renderer requires that model to equal `models.default` and refuses a
+  mismatch rather than silently running the default. It never sends anything
   outward. `/data/outbox` is
   on the scratch PVC and **nothing reads it**: it is the agent's own scratch
   record, not a delivery channel. The cluster digest the cluster sends toward
