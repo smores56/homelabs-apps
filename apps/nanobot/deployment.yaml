@@ -45,7 +45,7 @@ spec:
           # below it is the only image edit point and a hand-typed digest is a
           # bug that the next reconcile reverts.
           # {"$imagepolicy": "flux-system:nanobot"}
-          image: ghcr.io/smores56/homelabs-platform/nanobot@sha256:48ca60a5200e4e42376fcf37b213419ef6b7e66e3cb055675b36c5c21e80a4fd # yamllint disable-line rule:line-length
+          image: ghcr.io/smores56/homelabs-platform/nanobot@sha256:01a32bece3833808aa9e4d6f9527113232bbf6ff0a01665b1e865943d1e726e8 # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           args:
             - gateway
@@ -124,11 +124,11 @@ spec:
               readOnly: true
             # platform-owned prompt and model catalog, pinned by admission to
             # these two paths, so a tenant push cannot shadow them.
-            - name: policy
+            - name: nanobot-policy
               mountPath: /etc/nanobot/prompts/system.md
               subPath: system.md
               readOnly: true
-            - name: policy
+            - name: nanobot-policy
               mountPath: /etc/nanobot/models/providers.yaml
               subPath: providers.yaml
               readOnly: true
@@ -159,7 +159,7 @@ spec:
               - key: cron-weekly-review.yaml
                 path: weekly-review.yaml
         # Created by homelabs-platform, never by this repository.
-        - name: policy
+        - name: nanobot-policy
           configMap:
             name: nanobot-policy
             items:
