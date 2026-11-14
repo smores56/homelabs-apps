@@ -12,6 +12,12 @@ prompt: |
   AGENTS.md still describe the tree? Propose at most three commits, one concern
   each, and list anything that needs a human because it is cluster-scoped, a
   Secret, or touches a data namespace.
+
+  Then publish one notification through the notify skill, but only when the
+  report is not empty: the number of proposed commits and anything that needs a
+  human, priority `default` for proposals and `high` when something is blocked.
+  An empty report sends nothing — the file is the record, the notification is
+  the delivery.
 delivery:
   kind: file
   path: /data/outbox/weekly-review.md
