@@ -22,11 +22,13 @@ every private range, so there is nothing internal to reach that way.
 | `tinyfish` | TinyFish search (`?query=...`) |
 | `loki` | the read-only LogQL gateway for the `data` tenant |
 | `status` | the cluster status exporter (`/metrics`) |
+| `notify` | the ntfy bus (`POST /agent`, `?title=...&priority=...`) |
 
 ```sh
 curl -sS --max-time 30 "$BROKER_URL/neuralwatt/v1/models"
 curl -sS --max-time 20 --get --data-urlencode "query=QUERY" "$BROKER_URL/tinyfish"
 curl -sS "$BROKER_URL/status/metrics"
+curl -sS --max-time 20 -X POST "$BROKER_URL/notify/agent?title=Done" --data-binary 'body'
 ```
 
 The broker strips any `Authorization`, `Cookie`, `X-Api-Key` or
